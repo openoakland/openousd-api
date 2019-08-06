@@ -1,0 +1,7 @@
+{
+  "name": "openousd-api",
+  "version": "0.0.1",
+  "dependencies": {
+    "pg": "^7.4.3"
+  }
+}
