@@ -38,7 +38,7 @@ exports.postgresDemo = (req, res) => {
     pgPool = new pg.Pool(pgConfig);
   }
 
-  pgPool.query('SELECT NOW() as now', (err, results) => {
+  pgPool.query('SELECT * FROM objects LIMIT 10', (err, results) => {
     if (err) {
       console.error(err);
       res.status(500).send(err);
