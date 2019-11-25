@@ -27,33 +27,42 @@ const pgConfig = {
 // Connection pools reuse connections between invocations,
 // and handle dropped or expired connections automatically.
 let pgPool;
+if (!pgPool) {
+    pgPool = new pg.Pool(pgConfig);
+}
 
 const router = Router()
 
 router.get('/', async (req, res, next) => {
+
+    var query = 'SELECT * FROM objects LIMIT 10';
+
+    let results;
+
     try {
-        // Initialize the pool lazily, in case SQL access isn't needed for this
-        // GCF instance. Doing so minimizes the number of active SQL connections,
-        // which helps keep your GCF instances under SQL connection limits.
-        if (!pgPool) {
-            pgPool = new pg.Pool(pgConfig);
-        }
-
-        pgPool.query('SELECT * FROM objects LIMIT 10', (err, results) => {
-            if (err) {
-              console.error(err);
-              res.status(500).send(err);
-            } else {
-              res.json(results);
-            }
-        });
-
-        // Close any SQL resources that were declared inside this function.
-        // Keep any declared in global scope (e.g. mysqlPool) for later reuse.
-
+        results = await getData(query, res);
+        console.log(results);
+        res.json(results);
     } catch(e) {
-        next(e);
+        res.status(500).send(err);
     }
+
 });
+
+const getData = async (query, response) => {
+
+    // Initialize the pool lazily, in case SQL access isn't needed for this
+    // GCF instance. Doing so minimizes the number of active SQL connections,
+    // which helps keep your GCF instances under SQL connection limits.
+
+    await pgPool.query(query, async (err, results) => {
+        if (err) {
+          console.error(err);
+          throw new Error (err);
+        } else {
+          return results.rows;
+        }
+    });
+}
 
 module.exports = router;
