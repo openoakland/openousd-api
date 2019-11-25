@@ -27,9 +27,6 @@ const pgConfig = {
 // Connection pools reuse connections between invocations,
 // and handle dropped or expired connections automatically.
 let pgPool;
-if (!pgPool) {
-    pgPool = new pg.Pool(pgConfig);
-}
 
 const router = Router()
 
@@ -64,6 +61,10 @@ const getData = (query, res, processor) => {
     // Initialize the pool lazily, in case SQL access isn't needed for this
     // GCF instance. Doing so minimizes the number of active SQL connections,
     // which helps keep your GCF instances under SQL connection limits.
+
+    if (!pgPool) {
+        pgPool = new pg.Pool(pgConfig);
+    }
 
     pgPool.query(query, (err, results) => {
         if (err) {
