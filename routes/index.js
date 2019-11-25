@@ -37,30 +37,28 @@ router.get('/', async (req, res, next) => {
 
     var query = 'SELECT * FROM objects LIMIT 10';
 
-    let results;
+    let results, formatter;
 
     try {
-        results = await getData(query, res);
-        console.log(results);
-        res.json(results);
+        getData(query, res, formatter);
     } catch(e) {
         res.status(500).send(err);
     }
 
 });
 
-const getData = async (query, response) => {
+const getData = (query, res, formatter) => {
 
     // Initialize the pool lazily, in case SQL access isn't needed for this
     // GCF instance. Doing so minimizes the number of active SQL connections,
     // which helps keep your GCF instances under SQL connection limits.
 
-    await pgPool.query(query, async (err, results) => {
+    pgPool.query(query, (err, results) => {
         if (err) {
           console.error(err);
           throw new Error (err);
         } else {
-          return results.rows;
+          res.json(results.rows);
         }
     });
 }
