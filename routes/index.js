@@ -33,26 +33,33 @@ if (!pgPool) {
 
 const router = Router()
 
-router.get('/', async (req, res, next) => {
+router.get('/departments', async (req, res, next) => {
 
-    var query = `SELECT e.site_code as code, s.description as name, SUM(e.ytd_actual) as spending
-        FROM expenditures e
-        LEFT JOIN sites s ON e.site_code = s.code
-        WHERE e.site_code >= 900
-        AND e.year = 2017
-        GROUP BY e.site_code, s.description`;
+    var year = 2017;
 
-    let results, formatter;
+    if("year" in req.query) {
+        year = req.query.year;
+    }
+
+    var query = `SELECT e.site_code as code, s.description as name,
+                        SUM(e.ytd_actual) as spending, e.year
+                    FROM expenditures e
+                    LEFT JOIN sites s ON e.site_code = s.code
+                    WHERE e.site_code >= 900
+                    AND e.year = ${year}
+                    GROUP BY e.site_code, s.description, e.year`;
+
+    let processor;
 
     try {
-        getData(query, res, formatter);
+        getData(query, res, processor);
     } catch(e) {
         res.status(500).send(err);
     }
 
 });
 
-const getData = (query, res, formatter) => {
+const getData = (query, res, processor) => {
 
     // Initialize the pool lazily, in case SQL access isn't needed for this
     // GCF instance. Doing so minimizes the number of active SQL connections,
