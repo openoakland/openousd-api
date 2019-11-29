@@ -19,6 +19,12 @@ const pgConfig = {
   host: `/cloudsql/${connectionName}`
 }
 
+// This specifies that numeric types in PostgreSQL
+// should be conversted to floats in js
+// https://github.com/brianc/node-pg-types/issues/28
+var types = require('pg').types
+types.setTypeParser(1700, 'text', parseFloat);
+
 
 // if (process.env.NODE_ENV === 'production') {
 //   pgConfig.host = `/cloudsql/${connectionName}`;
@@ -70,9 +76,9 @@ const getData = (query, res, processor) => {
 
     pgPool.query(query, (err, results) => {
         if (err) {
-          console.error(err);
           throw new Error (err);
         } else {
+          console.log(results.rows)
           res.json(results.rows);
         }
     });
