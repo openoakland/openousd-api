@@ -39,7 +39,9 @@ router.get('/departments', async (req, res, next) => {
     }
 
     var query = `SELECT e.site_code as code, s.description as name,
-                        SUM(e.ytd_actual) as spending, e.year
+                        SUM(e.ytd_actual) as spending,
+                        SUM(e.adopted) as budget,
+                        e.year
                     FROM expenditures e
                     LEFT JOIN sites s ON e.site_code = s.code
                     WHERE e.site_code >= 900
