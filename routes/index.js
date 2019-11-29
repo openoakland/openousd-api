@@ -76,9 +76,9 @@ const getData = (query, res, processor) => {
 
     pgPool.query(query, (err, results) => {
         if (err) {
+          console.log(err);
           throw new Error (err);
         } else {
-          console.log(results.rows)
           res.json(results.rows);
         }
     });
