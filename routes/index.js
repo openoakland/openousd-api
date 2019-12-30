@@ -76,19 +76,23 @@ router.get('/sankey', async (req, res, next) => {
         year = req.query.year;
     }
 
-    var nodesQuery = ` SELECT DISTINCT(e.resource_code) as code, r.description, 'resource' as type
-                  FROM expenditures e
-                  LEFT JOIN resources r on r.code = e.resource_code
-                  WHERE e.year = ${year}
+    var nodesQuery = `SELECT DISTINCT(r.description) as id -- , DISTINCT(e.resource_code) as code, r.description, 'resource' as type
+                      FROM expenditures e
+                      LEFT JOIN resources r on r.code = e.resource_code
+                      WHERE e.year = ${year}
+                      AND e.site_code >= 900
+                      AND e.ytd_actual > 0
 
-                  UNION ALL
+                      UNION ALL
 
-                  SELECT DISTINCT(e.site_code) as code, s.description, 'site' as type
-                  FROM expenditures e
-                  LEFT JOIN sites s on s.code = e.site_code
-                  WHERE e.year = ${year}`;
+                      SELECT DISTINCT(s.description) as id -- , DISTINCT(e.site_code) as code, s.description, 'site' as type
+                      FROM expenditures e
+                      LEFT JOIN sites s on s.code = e.site_code
+                      WHERE e.year = ${year}
+                      AND e.site_code >= 900
+                      AND e.ytd_actual > 0`;
 
-    var linksQuery = `SELECT SUM(e.ytd_actual), s.description as target, r.description as source
+    var linksQuery = `SELECT SUM(e.ytd_actual) as value, s.description as target, r.description as source
                       FROM expenditures e
                       LEFT JOIN sites s ON e.site_code = s.code
                       LEFT JOIN resources r ON e.resource_code = r.code
@@ -98,8 +102,15 @@ router.get('/sankey', async (req, res, next) => {
                       GROUP BY s.description, r.description`
 
     try {
-        const results = await pgPool.query(nodesQuery)
-        res.json(results.rows)
+        const nodes = await pgPool.query(nodesQuery)
+        const links = await pgPool.query(linksQuery)
+
+        let result = {
+          nodes: nodes.rows,
+          links: links.rows
+        }
+
+        res.json(result)
     } catch(e) {
         console.log(e.stack)
         throw new Error (e);
