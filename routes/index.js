@@ -71,35 +71,44 @@ router.get('/departments', async (req, res, next) => {
 router.get('/sankey', async (req, res, next) => {
 
     var year = 2018;
+    var minSpend = 100000;
 
     if("year" in req.query) {
         year = req.query.year;
     }
 
-    var nodesQuery = `SELECT DISTINCT(r.description) as id -- , DISTINCT(e.resource_code) as code, r.description, 'resource' as type
+    if("minSpend" in req.query) {
+        minSpend = req.query.minSpend;
+    }
+
+    var nodesQuery = `SELECT r.category as id, 'resource' as type --, e.resource_code as code, r.description
                       FROM expenditures e
                       LEFT JOIN resources r on r.code = e.resource_code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
-                      AND e.ytd_actual > 0
+                      -- AND e.ytd_actual > 0
+                      GROUP BY r.category
+                      HAVING SUM(e.ytd_actual) >= ${minSpend}
+
 
                       UNION ALL
 
-                      SELECT DISTINCT(s.description) as id -- , DISTINCT(e.site_code) as code, s.description, 'site' as type
+                      SELECT DISTINCT(s.description) as id, 'site' as type --, e.site_code as code, s.description
                       FROM expenditures e
                       LEFT JOIN sites s on s.code = e.site_code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
-                      AND e.ytd_actual > 0`;
+                      GROUP BY s.description
+                      HAVING SUM(e.ytd_actual) >= ${minSpend}`;
 
-    var linksQuery = `SELECT SUM(e.ytd_actual) as value, s.description as target, r.description as source
+    var linksQuery = `SELECT SUM(e.ytd_actual) as value, s.description as target, r.category as source
                       FROM expenditures e
                       LEFT JOIN sites s ON e.site_code = s.code
                       LEFT JOIN resources r ON e.resource_code = r.code
-                      WHERE e.year = ${year}
-                      AND e.ytd_actual > 0
+                      WHERE e.year = 2018
                       AND e.site_code >= 900
-                      GROUP BY s.description, r.description`
+                      GROUP BY s.description, r.category
+                      HAVING SUM(e.ytd_actual) >= ${minSpend}`
 
     try {
         const nodes = await pgPool.query(nodesQuery)
