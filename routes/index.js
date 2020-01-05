@@ -93,21 +93,21 @@ router.get('/sankey', async (req, res, next) => {
 
                       UNION ALL
 
-                      SELECT DISTINCT(s.description) as id, 'site' as type --, e.site_code as code, s.description
+                      SELECT DISTINCT(s.category) as id, 'site' as type --, e.site_code as code, s.category
                       FROM expenditures e
                       LEFT JOIN sites s on s.code = e.site_code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
-                      GROUP BY s.description
+                      GROUP BY s.category
                       HAVING SUM(e.ytd_actual) >= ${minSpend}`;
 
-    var linksQuery = `SELECT SUM(e.ytd_actual) as value, s.description as target, r.category as source
+    var linksQuery = `SELECT SUM(e.ytd_actual) as value, s.category as target, r.category as source
                       FROM expenditures e
                       LEFT JOIN sites s ON e.site_code = s.code
                       LEFT JOIN resources r ON e.resource_code = r.code
                       WHERE e.year = 2018
                       AND e.site_code >= 900
-                      GROUP BY s.description, r.category
+                      GROUP BY s.category, r.category
                       HAVING SUM(e.ytd_actual) >= ${minSpend}`
 
     try {
