@@ -55,6 +55,7 @@ router.get('/departments', async (req, res, next) => {
                     FROM expenditures e
                     LEFT JOIN sites s ON e.site_code = s.code
                     WHERE e.site_code >= 900
+                    AND e.site_code != 998
                     AND e.year = ${year}
                     GROUP BY e.site_code, s.description, e.year`
 
@@ -91,6 +92,7 @@ router.get('/sankey', async (req, res, next) => {
                       LEFT JOIN resources r on r.code = e.resource_code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
+                      AND e.site_code != 998
                       GROUP BY r.category
                       HAVING SUM(e.ytd_actual) >= ${minSpend}
 
@@ -102,6 +104,7 @@ router.get('/sankey', async (req, res, next) => {
                       LEFT JOIN sites s on s.code = e.site_code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
+                      AND e.site_code != 998
                       GROUP BY s.category
                       HAVING SUM(e.ytd_actual) >= ${minSpend}`
 
@@ -114,6 +117,7 @@ router.get('/sankey', async (req, res, next) => {
                       LEFT JOIN resources r ON e.resource_code = r.code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
+                      AND e.site_code != 998
                       GROUP BY s.category, r.${resourceCol}
                       HAVING SUM(e.ytd_actual) >= ${minSpend}`
 
@@ -125,6 +129,7 @@ router.get('/sankey', async (req, res, next) => {
                       LEFT JOIN resources r ON e.resource_code = r.code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
+                      AND e.site_code != 998
                       GROUP BY r.category, r.type
                       HAVING SUM(e.ytd_actual) >= ${minSpend}`
 
