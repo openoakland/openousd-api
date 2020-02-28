@@ -94,7 +94,7 @@ router.get('/sankey', async (req, res, next) => {
                       AND e.site_code >= 900
                       AND e.site_code != 998
                       GROUP BY r.category
-                      HAVING SUM(e.ytd_actual) >= ${minSpend}
+                      HAVING SUM(e.ytd_actual) > 0
 
 
                       UNION ALL
@@ -106,7 +106,7 @@ router.get('/sankey', async (req, res, next) => {
                       AND e.site_code >= 900
                       AND e.site_code != 998
                       GROUP BY s.category
-                      HAVING SUM(e.ytd_actual) >= ${minSpend}`
+                      HAVING SUM(e.ytd_actual) > 0`
 
     var resourceCol = "category"
     if (groupBy === "restricted") resourceCol = "type"
