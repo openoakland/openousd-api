@@ -87,7 +87,7 @@ router.get('/sankey', async (req, res, next) => {
         groupBy = req.query.groupBy
     }
 
-    var nodesQuery = `SELECT r.category as id, 'resource' as type, SUM(ytd_actual) as total --, e.resource_code as code, r.description
+    var nodesQuery = `SELECT r.category as id, 'resource' as type, SUM(ytd_actual) as total, string_agg(DISTINCT r.description, ', ') as subnodes --, e.resource_code as code, r.description
                       FROM expenditures e
                       LEFT JOIN resources r on r.code = e.resource_code
                       WHERE e.year = ${year}
@@ -99,7 +99,7 @@ router.get('/sankey', async (req, res, next) => {
 
                       UNION ALL
 
-                      SELECT DISTINCT(s.category) as id, 'site' as type, SUM(ytd_actual) as total --, e.site_code as code, s.category
+                      SELECT DISTINCT(s.category) as id, 'site' as type, SUM(ytd_actual) as total, string_agg(DISTINCT s.description, ', ') as subnodes --, e.site_code as code, s.category
                       FROM expenditures e
                       LEFT JOIN sites s on s.code = e.site_code
                       WHERE e.year = ${year}
@@ -138,11 +138,13 @@ router.get('/sankey', async (req, res, next) => {
     const resourceTypeNodes = [
         {
           "id": "Restricted",
-          "type": "resource_type"
+          "type": "resource_type",
+          "subnodes": ""
         },
         {
           "id": "Unrestricted",
-          "type": "resource_type"
+          "type": "resource_type",
+          "subnodes": ""
         }
     ]
 
