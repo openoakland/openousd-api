@@ -49,6 +49,7 @@ router.get('/departments', async (req, res, next) => {
     }
 
     var query = `SELECT e.site_code as code, s.description as name,
+                        s.category,
                         SUM(e.ytd_actual) as spending,
                         SUM(e.adopted) as budget,
                         e.year
@@ -57,7 +58,7 @@ router.get('/departments', async (req, res, next) => {
                     WHERE e.site_code >= 900
                     AND e.site_code != 998
                     AND e.year = ${year}
-                    GROUP BY e.site_code, s.description, e.year`
+                    GROUP BY e.site_code, s.description, e.year, s.category`
 
     let processor
 
