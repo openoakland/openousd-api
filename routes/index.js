@@ -40,7 +40,7 @@ if (!pgPool) {
 
 const router = Router()
 
-router.get('/departments', async (req, res, next) => {
+router.get('/central-programs', async (req, res, next) => {
 
     var year = 2018
 
@@ -48,16 +48,47 @@ router.get('/departments', async (req, res, next) => {
         year = req.query.year
     }
 
-    var query = `SELECT e.site_code as code, s.description as name,
+    var query = `with p as (SELECT e.site_code as code, s.description as name, s.category,
                         SUM(e.ytd_actual) as spending,
-                        SUM(e.adopted) as budget,
+                        SUM(e.budget) as budget,
                         e.year
                     FROM expenditures e
                     LEFT JOIN sites s ON e.site_code = s.code
                     WHERE e.site_code >= 900
                     AND e.site_code != 998
                     AND e.year = ${year}
-                    GROUP BY e.site_code, s.description, e.year`
+                    GROUP BY e.site_code, s.description, e.year, s.category)
+                  SELECT p.*, ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as percent_under_budget
+                  FROM p ORDER BY p.name`
+
+    let processor
+
+    try {
+        getData(query, res, processor)
+    } catch(e) {
+        res.status(500).send(err)
+    }
+
+})
+
+router.get('/central-programs/resources', async (req, res, next) => {
+
+    var year = 2018
+
+    if("year" in req.query) {
+        year = req.query.year
+    }
+
+    var query = `SELECT e.resource_code as code, r.description as name, r.category,
+                        SUM(e.ytd_actual) as spending,
+                        SUM(e.budget) as budget,
+                        e.year
+                    FROM expenditures e
+                    LEFT JOIN resources r ON e.resource_code = r.code
+                    WHERE e.site_code >= 900
+                    AND e.site_code != 998
+                    AND e.year = ${year}
+                    GROUP BY e.resource_code, r.description, e.year, r.category`
 
     let processor
 
