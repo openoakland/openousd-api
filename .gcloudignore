@@ -14,3 +14,7 @@
 .gitignore
 
 node_modules
+db_backup
+.DS_Store
+README.md
+
