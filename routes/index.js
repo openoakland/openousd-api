@@ -61,7 +61,8 @@ router.get('/central-programs', async (req, res, next) => {
                       WHERE e.site_code >= 900
                       AND e.site_code != 998
                       AND e.year = ${year}
-                      GROUP BY e.site_code, s.description, e.year, s.category) p
+                      GROUP BY e.site_code, s.description, e.year, s.category
+                      HAVING SUM(e.ytd_actual) >= 0) p
                     LEFT JOIN (SELECT st.site_code, SUM(fte) as sum_fte
                       FROM
                         (SELECT position_id, MAX(assignment_id) as max_assignment
