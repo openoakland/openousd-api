@@ -48,18 +48,31 @@ router.get('/central-programs', async (req, res, next) => {
         year = req.query.year
     }
 
-    var query = `with p as (SELECT e.site_code as code, s.description as name, s.category,
-                        SUM(e.ytd_actual) as spending,
-                        SUM(e.budget) as budget,
-                        e.year
-                    FROM expenditures e
-                    LEFT JOIN sites s ON e.site_code = s.code
-                    WHERE e.site_code >= 900
-                    AND e.site_code != 998
-                    AND e.year = ${year}
-                    GROUP BY e.site_code, s.description, e.year, s.category)
-                  SELECT p.*, ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as percent_under_budget
-                  FROM p ORDER BY p.name`
+    var query = `SELECT p.*,
+                  staff.sum_fte as eoy_total_staff,
+                  ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as remaining_budget_percent
+                  FROM
+                    (SELECT e.site_code as code, s.description as name, s.category,
+                      SUM(e.ytd_actual) as spending,
+                      SUM(e.budget) as budget,
+                      e.year
+                      FROM expenditures e
+                      LEFT JOIN sites s ON e.site_code = s.code
+                      WHERE e.site_code >= 900
+                      AND e.site_code != 998
+                      AND e.year = ${year}
+                      GROUP BY e.site_code, s.description, e.year, s.category
+                      HAVING SUM(e.ytd_actual) >= 0) p
+                    LEFT JOIN (SELECT st.site_code, SUM(fte) as sum_fte
+                      FROM
+                        (SELECT position_id, MAX(assignment_id) as max_assignment
+                        from staffing
+                        GROUP BY position_id) m,
+                        staffing st
+                      WHERE m.position_id = st.position_id
+                      AND m.max_assignment = st.assignment_id
+                      GROUP BY st.site_code) staff ON p.code = staff.site_code
+                  ORDER BY p.name`
 
     let processor
 
