@@ -31,10 +31,6 @@ var types = require('pg').types
 types.setTypeParser(1700, 'text', parseFloat)
 
 
-// if (process.env.NODE_ENV === 'production') {
-//   pgConfig.host = `/cloudsql/${connectionName}`
-//}
-
 // Connection pools reuse connections between invocations,
 // and handle dropped or expired connections automatically.
 let pgPool
