@@ -111,7 +111,11 @@ router.get('/central-programs', async (req, res, next) => {
             }, Object.create(null))
 
             programs = programs.map(program => {
-                program.staff_roles = rolesGroupedByProgram[program.code]
+                if(program.code in rolesGroupedByProgram) {
+                  program.staff_roles = rolesGroupedByProgram[program.code]
+                } else {
+                  program.staff_roles = []
+                }
                 return program
             })
 
