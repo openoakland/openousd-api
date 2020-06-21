@@ -80,7 +80,10 @@ router.get('/central-programs', async (req, res, next) => {
                       GROUP BY st.site_code) staff ON p.code = staff.site_code
                   ORDER BY p.name`
 
-    var staffRolesQuery = `SELECT st.site_code, st.job_class_description as role_description, CAST(COUNT(*) AS INT) as eoy_total_positions_for_role
+    var staffRolesQuery = `SELECT st.site_code,
+                                  st.job_class_description as role_description,
+                                  st.job_class_display_description as role_display_description,
+                                  CAST(COUNT(*) AS INT) as eoy_total_positions_for_role
                             FROM
                                 (SELECT position_id, MAX(assignment_id) as max_assignment
                                 FROM staffing
@@ -91,7 +94,7 @@ router.get('/central-programs', async (req, res, next) => {
                             AND m.max_assignment = st.assignment_id
                             AND st.site_code >= 900
                             AND year = ${year}
-                            GROUP BY st.site_code, st.job_class_description`
+                            GROUP BY st.site_code, st.job_class_description, st.job_class_display_description`
 
     try {
         var programs = await pgPool.query(centralProgramsQuery)
@@ -103,8 +106,16 @@ router.get('/central-programs', async (req, res, next) => {
             var allStaffRoles = await pgPool.query(staffRolesQuery)
             staffRoles = allStaffRoles.rows
             rolesGroupedByProgram = staffRoles.reduce((r,row) => {
+                // Bit of a hack for now
+                // If there is a better role name in the database, send that instead of janky OUSD name
+                if(row.role_display_description) {
+                  row.role_description = row.role_display_description
+                }
+                delete row.role_display_description
+
                 var code = row.site_code
                 delete row.site_code
+
                 r[code] = r[code] || []
                 r[code].push(row)
                 return r
