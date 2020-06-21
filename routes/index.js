@@ -50,6 +50,7 @@ router.get('/central-programs', async (req, res, next) => {
     }
 
     var includeStaffRoles = true
+    var includeStaffBargainingUnits = true
 
     var centralProgramsQuery = `SELECT p.*,
                   staff.sum_fte as eoy_total_fte, staff.eoy_total_positions,
@@ -83,7 +84,7 @@ router.get('/central-programs', async (req, res, next) => {
     var staffRolesQuery = `SELECT st.site_code,
                                   st.job_class_description as role_description,
                                   st.job_class_display_description as role_display_description,
-                                  CAST(COUNT(*) AS INT) as eoy_total_positions_for_role
+                                  CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_role
                             FROM
                                 (SELECT position_id, MAX(assignment_id) as max_assignment
                                 FROM staffing
@@ -95,6 +96,23 @@ router.get('/central-programs', async (req, res, next) => {
                             AND st.site_code >= 900
                             AND year = ${year}
                             GROUP BY st.site_code, st.job_class_description, st.job_class_display_description`
+
+    var staffBargainingUnitsQuery = `SELECT st.site_code,
+                                      bu.abbreviation,
+                                      bu.description,
+                                      CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_staff_positions_for_bu
+                                    FROM
+                                      (SELECT position_id, MAX(assignment_id) as max_assignment
+                                      FROM staffing
+                                       WHERE year = ${year}
+                                      GROUP BY position_id) m
+                                    LEFT JOIN staffing st ON (m.position_id = st.position_id AND m.max_assignment = st.assignment_id)
+                                    LEFT JOIN bargaining_units bu on st.bargaining_unit_id = bu.bargaining_unit
+                                    WHERE
+                                    st.site_code >= 900
+                                    AND st.year = ${year}
+                                    GROUP BY st.site_code, bu.abbreviation, bu.description
+                                    ORDER BY st.site_code ASC`
 
     try {
         var programs = await pgPool.query(centralProgramsQuery)
@@ -126,6 +144,29 @@ router.get('/central-programs', async (req, res, next) => {
                   program.staff_roles = rolesGroupedByProgram[program.code]
                 } else {
                   program.staff_roles = []
+                }
+                return program
+            })
+
+        }
+
+        if(includeStaffBargainingUnits) {
+            var allStaffBargainingUnits = await pgPool.query(staffBargainingUnitsQuery)
+            staffBargainingUnits = allStaffBargainingUnits.rows
+            staffBargainingUnitsGroupedByProgram = staffBargainingUnits.reduce((r,row) => {
+                var code = row.site_code
+                delete row.site_code
+
+                r[code] = r[code] || []
+                r[code].push(row)
+                return r
+            }, Object.create(null))
+
+            programs = programs.map(program => {
+                if(program.code in staffBargainingUnitsGroupedByProgram) {
+                  program.staff_bargaining_units = staffBargainingUnitsGroupedByProgram[program.code]
+                } else {
+                  program.staff_bargaining_units = []
                 }
                 return program
             })
