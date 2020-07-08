@@ -1,6 +1,22 @@
 # Update the Google Cloud function
 ```gcloud functions deploy openousd --trigger-http```
 
+# Run Locally
+1. Create a `.env` file, get hosted database info from a project member and populate the file
+```
+SQL_USER=
+SQL_PASSWORD=
+SQL_NAME=
+SQL_HOST=
+```
+2. Ask to have your IP address added to trusted list in Google Cloud SQL
+3. Run `npm start` in the console
+
+Now you should be able to get responses from:
+```HTTP
+http://localhost:8080/api/
+```
+
 # Data Updates
 
 ## Staffing

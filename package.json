@@ -3,8 +3,15 @@
   "version": "0.0.1",
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "method-override": "^3.0.0",
     "pg": "^7.4.3"
+  },
+  "scripts": {
+    "start": "functions-framework --target=openousd"
+  },
+  "devDependencies": {
+    "@google-cloud/functions-framework": "^1.5.1"
   }
 }
