@@ -1,0 +1,16 @@
+version: '3.1'
+
+services:
+  postgres:
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: openousd
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: openousd
+      POSTGRES_HOST_AUTH_METHOD: trust
+    build:
+      context: .
+      dockerfile: ./db_backup/Dockerfile
+    volumes:
+      - ./db_backup:/db_backup
