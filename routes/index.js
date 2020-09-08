@@ -5,7 +5,7 @@ const Request = require('express').Request
 const pg = require('pg')
 
 if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config();
+  require('dotenv').config({path: ".env.local"});
 }
 
 
