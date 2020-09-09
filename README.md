@@ -1,6 +1,3 @@
-# Update the Google Cloud function
-```gcloud functions deploy openousd --trigger-http```
-
 # Running a local database
 
 ## Setup
@@ -45,6 +42,32 @@ Database must be running locally.
 
 TODO
 
+# OpenOUSD "API"
+
+## Running Google Cloud Functions "API" locally
+1. If it's your first time running, run `npm install`
+2. Run the postgres database in the Docker (see above)
+3. Once the container is running, run `npm start` to start the node server
+
+Now you should be able to get responses from:
+```HTTP
+http://localhost:8080/api/
+```
+For example:
+```
+http://localhost:8080/api/central-programs/
+```
+
+## Testing changes
+
+Unfortunately, right now the server needs to start and stop to load new changes.
+
+## Deploy Google Cloud Function
+
+```gcloud functions deploy openousd --trigger-http```
+
+You may need to be added to the Google Gloud Project.
+
 
 # Data Updates
 
@@ -66,19 +89,3 @@ TODO
 3. Rename column headers to match the `staffing` table
 4. Import CSV to `staffing` table in Postgres
 
-
-# Connecting local Google Cloud Functions to a remote database
-1. Create a `.env` file, get hosted database info from a project member and populate the file
-```
-SQL_USER=
-SQL_PASSWORD=
-SQL_NAME=
-SQL_HOST=
-```
-2. Ask to have your IP address added to trusted list in Google Cloud SQL
-3. Run `npm start` in the console
-
-Now you should be able to get responses from:
-```HTTP
-http://localhost:8080/api/
-```
