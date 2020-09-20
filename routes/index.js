@@ -198,7 +198,8 @@ router.get('/central-programs/resources', async (req, res, next) => {
                     WHERE e.site_code >= 900
                     AND e.site_code != 998
                     AND e.year = ${year}
-                    GROUP BY e.resource_code, r.description, e.year, r.category`
+                    GROUP BY e.resource_code, r.description, e.year, r.category
+                    ORDER BY code`
 
     let processor
 
