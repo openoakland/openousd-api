@@ -82,20 +82,22 @@ router.get('/central-programs', async (req, res, next) => {
                   ORDER BY p.name`
 
     var staffRolesQuery = `SELECT st.site_code,
-                                  st.job_class_description as role_description,
-                                  st.job_class_display_description as role_display_description,
-                                  CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_role
+                                COALESCE(jc.display,st.job_class_description) as role_description,
+                                CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_role
                             FROM
-                                (SELECT position_id, MAX(assignment_id) as max_assignment
-                                FROM staffing
-                                 WHERE year = ${year}
-                                GROUP BY position_id) m,
+                              (SELECT position_id, MAX(assignment_id) as max_assignment
+                              FROM staffing
+                               WHERE year = ${year}
+                              GROUP BY position_id) m,
+                            job_classes jc,
                             staffing st
                             WHERE m.position_id = st.position_id
+                            AND st.job_class_id = jc.job_class_id
                             AND m.max_assignment = st.assignment_id
                             AND st.site_code >= 900
                             AND year = ${year}
-                            GROUP BY st.site_code, st.job_class_description, st.job_class_display_description`
+                            GROUP BY st.site_code, st.job_class_description, jc.display
+                            ORDER BY st.site_code`
 
     var staffBargainingUnitsQuery = `SELECT st.site_code,
                                       bu.abbreviation,
@@ -107,7 +109,7 @@ router.get('/central-programs', async (req, res, next) => {
                                        WHERE year = ${year}
                                       GROUP BY position_id) m
                                     LEFT JOIN staffing st ON (m.position_id = st.position_id AND m.max_assignment = st.assignment_id)
-                                    LEFT JOIN bargaining_units bu on st.bargaining_unit_id = bu.bargaining_unit
+                                    LEFT JOIN bargaining_units bu on TRIM(st.bargaining_unit_id) = bu.bargaining_unit
                                     WHERE
                                     st.site_code >= 900
                                     AND st.year = ${year}
@@ -124,13 +126,6 @@ router.get('/central-programs', async (req, res, next) => {
             var allStaffRoles = await pgPool.query(staffRolesQuery)
             staffRoles = allStaffRoles.rows
             rolesGroupedByProgram = staffRoles.reduce((r,row) => {
-                // Bit of a hack for now
-                // If there is a better role name in the database, send that instead of janky OUSD name
-                if(row.role_display_description) {
-                  row.role_description = row.role_display_description
-                }
-                delete row.role_display_description
-
                 var code = row.site_code
                 delete row.site_code
 
