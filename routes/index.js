@@ -82,7 +82,7 @@ router.get('/central-programs', async (req, res, next) => {
                   ORDER BY p.name`
 
     var staffRolesQuery = `SELECT st.site_code,
-                                COALESCE(jc.display,st.job_class_description) as role_description,
+                                COALESCE(jc.display,jc.description) as role_description,
                                 CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_role
                             FROM
                               (SELECT position_id, MAX(assignment_id) as max_assignment
@@ -96,7 +96,7 @@ router.get('/central-programs', async (req, res, next) => {
                             AND m.max_assignment = st.assignment_id
                             AND st.site_code >= 900
                             AND year = ${year}
-                            GROUP BY st.site_code, st.job_class_description, jc.display
+                            GROUP BY st.site_code, jc.description, jc.display
                             ORDER BY st.site_code`
 
     var staffBargainingUnitsQuery = `SELECT st.site_code,
