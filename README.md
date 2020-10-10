@@ -1,21 +1,73 @@
-# Update the Google Cloud function
-```gcloud functions deploy openousd --trigger-http```
+# Running a local database
 
-# Run Locally
-1. Create a `.env` file, get hosted database info from a project member and populate the file
+## Setup
+
+**Note:** Requires [Docker Desktop](https://www.docker.com/products/docker-desktop) to be installed and running.
+
+In the top directory, run `docker-compose up`
+
+The first time you run `docker-compose up`, the container will exit with errors that say it cannot drop tables because they do not exist. Those can be ignored. Looks like this:
+
 ```
-SQL_USER=
-SQL_PASSWORD=
-SQL_NAME=
-SQL_HOST=
+postgres_1  | pg_restore: [archiver (db)] Error from TOC entry 186; 1259 16716 TABLE bargaining_units postgres
+postgres_1  | pg_restore: [archiver (db)] could not execute query: ERROR:  table "bargaining_units" does not exist
+postgres_1  |     Command was: DROP TABLE public.bargaining_units;
+postgres_1  |
+postgres_1  | pg_restore: [archiver (db)] Error from TOC entry 185; 1259 16710 TABLE all_resources postgres
+postgres_1  | pg_restore: [archiver (db)] could not execute query: ERROR:  table "all_resources" does not exist
+postgres_1  |     Command was: DROP TABLE public.all_resources;
+postgres_1  |
+postgres_1  | ERROR:  table "all_resources" does not exist
+postgres_1  | STATEMENT:  DROP TABLE public.all_resources;
+postgres_1  |
+postgres_1  | WARNING: errors ignored on restore: 27
 ```
-2. Ask to have your IP address added to trusted list in Google Cloud SQL
-3. Run `npm start` in the console
+
+## Running the container
+
+After doing the setup above, you can run:
+```
+docker-compose up
+```
+
+## Creating a database snapshot
+
+After modifying the database, you can create a snapshot with:
+```
+npm run createSnapshot
+```
+Database must be running locally.
+
+## Updating to a new db snapshot
+
+TODO
+
+# OpenOUSD "API"
+
+## Running Google Cloud Functions "API" locally
+1. If it's your first time running, run `npm install`
+2. Run the postgres database in the Docker (see above)
+3. Once the container is running, run `npm start` to start the node server
 
 Now you should be able to get responses from:
 ```HTTP
 http://localhost:8080/api/
 ```
+For example:
+```
+http://localhost:8080/api/central-programs/
+```
+
+## Testing changes
+
+Unfortunately, right now the server needs to start and stop to load new changes.
+
+## Deploy Google Cloud Function
+
+```gcloud functions deploy openousd --trigger-http```
+
+You may need to be added to the Google Gloud Project.
+
 
 # Data Updates
 
@@ -36,3 +88,4 @@ http://localhost:8080/api/
 2. Remove trailing whitespace. `job_class_id` and `bargaining_unit_id` columns might have trailing whitespace. The `TRIM` function does this in Excel.
 3. Rename column headers to match the `staffing` table
 4. Import CSV to `staffing` table in Postgres
+
