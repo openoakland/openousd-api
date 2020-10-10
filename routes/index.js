@@ -43,16 +43,17 @@ const router = Router()
 
 router.get('/central-programs', async (req, res, next) => {
 
-    var year = 2018
+    let year = 2018
 
     if("year" in req.query) {
         year = req.query.year
     }
 
-    var includeStaffRoles = true
-    var includeStaffBargainingUnits = true
+    const includeStaffRoles = true
+    const includeStaffBargainingUnits = true
+    const includeStaffTimeSeries = true
 
-    var centralProgramsQuery = `SELECT p.*,
+    const centralProgramsQuery = `SELECT p.*,
                   staff.sum_fte as eoy_total_fte, staff.eoy_total_positions,
                   ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as remaining_budget_percent
                   FROM
@@ -81,7 +82,37 @@ router.get('/central-programs', async (req, res, next) => {
                       GROUP BY st.site_code) staff ON p.code = staff.site_code
                   ORDER BY p.name`
 
-    var staffRolesQuery = `SELECT st.site_code,
+// Query to select multiple years of data
+//                 SELECT p.*,
+//                   staff.sum_fte as eoy_total_fte, staff.eoy_total_positions,
+//                   ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as remaining_budget_percent
+//                   FROM
+//                     (SELECT e.site_code as code, s.description as name, s.category,
+//                       SUM(e.ytd_actual) as spending,
+//                       SUM(e.budget) as budget,
+//                       e.year
+//                       FROM expenditures e
+//                       LEFT JOIN sites s ON e.site_code = s.code
+//                       WHERE e.site_code >= 900
+//                       AND e.site_code != 998
+// --                       AND e.year = 2018
+//                       GROUP BY e.site_code, s.description, e.year, s.category
+//                       HAVING SUM(e.ytd_actual) >= 0) p
+//                     LEFT JOIN (SELECT st.site_code,
+//                                       SUM(fte) as sum_fte,
+//                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
+//                       m.year
+//                       FROM
+//                         (SELECT position_id, MAX(assignment_id) as max_assignment, year
+//                         from staffing
+//                         GROUP BY position_id, year) m,
+//                         staffing st
+//                       WHERE m.position_id = st.position_id
+//                       AND m.max_assignment = st.assignment_id
+//                       GROUP BY st.site_code, m.year) staff ON p.code = staff.site_code and p.year = staff.year
+//                   ORDER BY p.name
+
+    const staffRolesQuery = `SELECT st.site_code,
                                 COALESCE(jc.display,jc.description) as role_description,
                                 CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_role
                             FROM
@@ -99,7 +130,7 @@ router.get('/central-programs', async (req, res, next) => {
                             GROUP BY st.site_code, jc.description, jc.display
                             ORDER BY st.site_code`
 
-    var staffBargainingUnitsQuery = `SELECT st.site_code,
+    const staffBargainingUnitsQuery = `SELECT st.site_code,
                                       bu.abbreviation,
                                       bu.description,
                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_bu
@@ -116,14 +147,29 @@ router.get('/central-programs', async (req, res, next) => {
                                     GROUP BY st.site_code, bu.abbreviation, bu.description
                                     ORDER BY st.site_code ASC`
 
+    const staffTimeSeriesQuery =   `SELECT st.site_code,
+                                      SUM(fte) as sum_fte,
+                                      CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
+                                      m.year
+                                    FROM
+                                      (SELECT position_id, MAX(assignment_id) as max_assignment, year
+                                      from staffing
+                                      GROUP BY position_id, year) m,
+                                      staffing st
+                                    WHERE m.position_id = st.position_id
+                                      AND m.max_assignment = st.assignment_id
+                                      AND st.site_code >=900
+                                    GROUP BY st.site_code, m.year`
+
     try {
-        var programs = await pgPool.query(centralProgramsQuery)
+        let programs = await pgPool.query(centralProgramsQuery)
         programs = programs.rows
-        var staffRoles
-        var rolesGroupedByProgram = {}
+        let staffRoles, staffTimeSeries
+        let rolesGroupedByProgram = {}
+        let staffTimeSeriesGroupedByProgram = {}
 
         if(includeStaffRoles) {
-            var allStaffRoles = await pgPool.query(staffRolesQuery)
+            let allStaffRoles = await pgPool.query(staffRolesQuery)
             staffRoles = allStaffRoles.rows
             rolesGroupedByProgram = staffRoles.reduce((r,row) => {
                 var code = row.site_code
@@ -146,7 +192,7 @@ router.get('/central-programs', async (req, res, next) => {
         }
 
         if(includeStaffBargainingUnits) {
-            var allStaffBargainingUnits = await pgPool.query(staffBargainingUnitsQuery)
+            let allStaffBargainingUnits = await pgPool.query(staffBargainingUnitsQuery)
             staffBargainingUnits = allStaffBargainingUnits.rows
             staffBargainingUnitsGroupedByProgram = staffBargainingUnits.reduce((r,row) => {
                 var code = row.site_code
@@ -167,6 +213,33 @@ router.get('/central-programs', async (req, res, next) => {
             })
 
         }
+
+        if(includeStaffTimeSeries) {
+          let staffTimeSeries = await pgPool.query(staffTimeSeriesQuery)
+          staffTimeSeries = staffTimeSeries.rows
+
+          staffTimeSeries.forEach(row => {
+            console.log(row)
+            if(!(row.site_code in staffTimeSeriesGroupedByProgram)) {
+              staffTimeSeriesGroupedByProgram[row.site_code] = {
+                eoy_total_fte_time_series: [],
+                eoy_total_positions_time_series: []
+              }
+            }
+
+            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_positions_time_series.push({ [row.year]: row.eoy_total_positions})
+
+            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_fte_time_series.push({ [row.year]: row.sum_fte })
+
+          })
+        }
+
+        programs = programs.map(program => {
+          if(includeStaffTimeSeries && (program.code in staffTimeSeriesGroupedByProgram)) {
+            program = { ...program, ...staffTimeSeriesGroupedByProgram[program.code]}
+          }
+          return program
+        })
 
         res.json(programs)
     } catch(e) {
