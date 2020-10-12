@@ -43,7 +43,8 @@ const router = Router()
 
 router.get('/central-programs', async (req, res, next) => {
 
-    let year = 2018
+    const year = 2018
+    const latestStaffYear = 2019 // NEED TO REMOVE THIS | JUST FOR TESTING RIGHT NOW
 
     if("year" in req.query) {
         year = req.query.year
@@ -74,7 +75,7 @@ router.get('/central-programs', async (req, res, next) => {
                       FROM
                         (SELECT position_id, MAX(assignment_id) as max_assignment
                         from staffing
-                        WHERE year = ${year}
+                        WHERE year = ${latestStaffYear} -- NEEDS TO BE CHANGE BACK TO year
                         GROUP BY position_id) m,
                         staffing st
                       WHERE m.position_id = st.position_id
@@ -219,7 +220,6 @@ router.get('/central-programs', async (req, res, next) => {
           staffTimeSeries = staffTimeSeries.rows
 
           staffTimeSeries.forEach(row => {
-            console.log(row)
             if(!(row.site_code in staffTimeSeriesGroupedByProgram)) {
               staffTimeSeriesGroupedByProgram[row.site_code] = {
                 eoy_total_fte_time_series: [],
@@ -227,9 +227,15 @@ router.get('/central-programs', async (req, res, next) => {
               }
             }
 
-            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_positions_time_series.push({ [row.year]: row.eoy_total_positions})
+            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_positions_time_series.push({
+              year: row.year,
+              eoy_total_positions: row.eoy_total_positions
+            })
 
-            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_fte_time_series.push({ [row.year]: row.sum_fte })
+            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_fte_time_series.push({
+              year: row.year,
+              eoy_total_fte: row.sum_fte
+            })
 
           })
         }
@@ -237,6 +243,29 @@ router.get('/central-programs', async (req, res, next) => {
         programs = programs.map(program => {
           if(includeStaffTimeSeries && (program.code in staffTimeSeriesGroupedByProgram)) {
             program = { ...program, ...staffTimeSeriesGroupedByProgram[program.code]}
+
+            try {
+              program.change_from_previous_year = {}
+
+              const previousYear = latestStaffYear-1 // NEED TO REPLCE latestStaffYear WITH year
+
+              program.change_from_previous_year.previous_year = previousYear
+
+              const lastYearTotalFTE =
+                program.eoy_total_fte_time_series.find(data => data.year === previousYear)
+
+              program.change_from_previous_year.eoy_total_fte =
+                program.eoy_total_fte - lastYearTotalFTE.eoy_total_fte
+
+              const lastYearTotalPositions =
+                program.eoy_total_positions_time_series.find(data => data.year === previousYear)
+
+              program.change_from_previous_year.eoy_total_positions =
+                program.eoy_total_positions - lastYearTotalPositions.eoy_total_positions
+            } catch(e) {
+              console.log(e)
+            }
+
           }
           return program
         })
