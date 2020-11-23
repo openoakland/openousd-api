@@ -4,24 +4,19 @@ const Request = require('express').Request
 
 const pg = require('pg')
 
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config({path: ".env.local"});
-}
-
-
-const connectionName =
-  process.env.INSTANCE_CONNECTION_NAME || 'openousd:us-central1:openousd-staging'
+require('dotenv').config({path: ".env.local"})
 const dbUser = process.env.SQL_USER
 const dbPassword = process.env.SQL_PASSWORD
 const dbName = process.env.SQL_NAME
-const dbHost = process.env.SQL_HOST || `/cloudsql/${connectionName}`
+const dbHost = process.env.SQL_HOST
 
 const pgConfig = {
   max: 1,
   user: dbUser,
   password: dbPassword,
   database: dbName,
-  host: dbHost
+  host: dbHost,
+  port: 5432
 }
 
 // This specifies that numeric types in PostgreSQL
@@ -168,6 +163,7 @@ router.get('/central-programs', async (req, res, next) => {
         let staffRoles, staffTimeSeries
         let rolesGroupedByProgram = {}
         let staffTimeSeriesGroupedByProgram = {}
+                      console.log("Hello Friend")
 
         if(includeStaffRoles) {
             let allStaffRoles = await pgPool.query(staffRolesQuery)
@@ -269,11 +265,10 @@ router.get('/central-programs', async (req, res, next) => {
           }
           return program
         })
-
-        res.json(programs)
+        res.set("Connection", "close").json(programs).end()
     } catch(e) {
         console.log(e)
-        res.status(500).send(e)
+        res.status(500).send(e).end()
     }
 
 })
