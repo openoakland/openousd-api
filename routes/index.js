@@ -270,7 +270,7 @@ router.get('/central-programs', async (req, res, next) => {
         res.json(programs)
     } catch(e) {
         console.log(e)
-        res.status(500).send(e).end()
+        res.status(500).send(e)
     }
 
 })
