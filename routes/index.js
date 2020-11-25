@@ -267,7 +267,7 @@ router.get('/central-programs', async (req, res, next) => {
           }
           return program
         })
-        res.set("Connection", "close").json(programs).end()
+        res.json(programs)
     } catch(e) {
         console.log(e)
         res.status(500).send(e).end()
