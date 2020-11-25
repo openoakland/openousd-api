@@ -11,11 +11,12 @@ const dbName = process.env.SQL_NAME
 const dbHost = process.env.SQL_HOST
 
 const pgConfig = {
-  max: 1,
+  max: 10,
   user: dbUser,
   password: dbPassword,
   database: dbName,
   host: dbHost,
+  connectionTimeoutMillis: 4000,
   port: 5432
 }
 
@@ -33,6 +34,8 @@ let pgPool
 if (!pgPool) {
         pgPool = new pg.Pool(pgConfig)
 }
+
+pgPool.on('error', (err, client) => console.log(err))
 
 const router = Router()
 
@@ -163,7 +166,6 @@ router.get('/central-programs', async (req, res, next) => {
         let staffRoles, staffTimeSeries
         let rolesGroupedByProgram = {}
         let staffTimeSeriesGroupedByProgram = {}
-                      console.log("Hello Friend")
 
         if(includeStaffRoles) {
             let allStaffRoles = await pgPool.query(staffRolesQuery)
