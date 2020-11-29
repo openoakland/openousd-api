@@ -4,24 +4,20 @@ const Request = require('express').Request
 
 const pg = require('pg')
 
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config({path: ".env.local"});
-}
-
-
-const connectionName =
-  process.env.INSTANCE_CONNECTION_NAME || 'openousd:us-central1:openousd-staging'
+require('dotenv').config({path: ".env.local"})
 const dbUser = process.env.SQL_USER
 const dbPassword = process.env.SQL_PASSWORD
 const dbName = process.env.SQL_NAME
-const dbHost = process.env.SQL_HOST || `/cloudsql/${connectionName}`
+const dbHost = process.env.SQL_HOST
 
 const pgConfig = {
-  max: 1,
+  max: 10,
   user: dbUser,
   password: dbPassword,
   database: dbName,
-  host: dbHost
+  host: dbHost,
+  connectionTimeoutMillis: 4000,
+  port: 5432
 }
 
 // This specifies that numeric types in PostgreSQL
@@ -38,6 +34,8 @@ let pgPool
 if (!pgPool) {
         pgPool = new pg.Pool(pgConfig)
 }
+
+pgPool.on('error', (err, client) => console.log(err))
 
 const router = Router()
 
@@ -269,7 +267,6 @@ router.get('/central-programs', async (req, res, next) => {
           }
           return program
         })
-
         res.json(programs)
     } catch(e) {
         console.log(e)

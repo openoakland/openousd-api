@@ -6,14 +6,11 @@
     "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "method-override": "^3.0.0",
-    "pg": "^7.4.3"
+    "pg": "^8.5.1"
   },
   "scripts": {
-    "start": "functions-framework --target=openousd",
+    "start": "DEBUG=app,express:* node --inspect app.js",
     "createSnapshot": "docker exec -it openousd-api_postgres_1 bash -c 'pg_dump -Fc -h localhost -U postgres openousd > /db_backup/snapshots/openousd_snapshot_$(date +'%Y-%m-%d_%H-%M').dump'",
     "cleanDocker": "./db_backup/cleanDocker.sh"
-  },
-  "devDependencies": {
-    "@google-cloud/functions-framework": "^1.5.1"
   }
 }
