@@ -37,12 +37,16 @@ if (!pgPool) {
 
 pgPool.on('error', (err, client) => console.log(err))
 
+
+
+// Global defaults
+const latestYear = 2019
+
 const router = Router()
 
 router.get('/central-programs', async (req, res, next) => {
 
-    const year = 2018
-    const latestStaffYear = 2019 // NEED TO REMOVE THIS | JUST FOR TESTING RIGHT NOW
+    year = latestYear
 
     if("year" in req.query) {
         year = req.query.year
@@ -73,7 +77,7 @@ router.get('/central-programs', async (req, res, next) => {
                       FROM
                         (SELECT position_id, MAX(assignment_id) as max_assignment
                         from staffing
-                        WHERE year = ${latestStaffYear} -- NEEDS TO BE CHANGE BACK TO year
+                        WHERE year = ${year}
                         GROUP BY position_id) m,
                         staffing st
                       WHERE m.position_id = st.position_id
@@ -245,7 +249,7 @@ router.get('/central-programs', async (req, res, next) => {
             try {
               program.change_from_previous_year = {}
 
-              const previousYear = latestStaffYear-1 // NEED TO REPLCE latestStaffYear WITH year
+              const previousYear = year-1
 
               program.change_from_previous_year.previous_year = previousYear
 
@@ -261,7 +265,7 @@ router.get('/central-programs', async (req, res, next) => {
               program.change_from_previous_year.eoy_total_positions =
                 program.eoy_total_positions - lastYearTotalPositions.eoy_total_positions
             } catch(e) {
-              console.log(e)
+              console.log(`Previous year data not available for`, program.name, program.code, "\n", e)
             }
 
           }
@@ -277,7 +281,7 @@ router.get('/central-programs', async (req, res, next) => {
 
 router.get('/central-programs/resources', async (req, res, next) => {
 
-    var year = 2018
+    year = latestYear
 
     if("year" in req.query) {
         year = req.query.year
@@ -307,9 +311,9 @@ router.get('/central-programs/resources', async (req, res, next) => {
 
 router.get('/central-programs/sankey', async (req, res, next) => {
 
-    var year = 2018
-    var minSpend = 100000
-    var groupBy = null
+    year = latestYear
+    let minSpend = 100000
+    let groupBy = null
 
     if("year" in req.query) {
         year = req.query.year
@@ -430,7 +434,7 @@ router.get('/central-programs/sankey', async (req, res, next) => {
 
 router.get('/sankey', async (req, res, next) => {
 
-    var year = 2018
+    year = latestYear
     var minSpend = 100000
     var groupBy = null
 

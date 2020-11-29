@@ -9,8 +9,11 @@
     "pg": "^8.5.1"
   },
   "scripts": {
-    "start": "DEBUG=app,express:* node --inspect app.js",
+    "start": "nodemon --inspect app.js",
     "createSnapshot": "docker exec -it openousd-api_postgres_1 bash -c 'pg_dump -Fc -h localhost -U postgres openousd > /db_backup/snapshots/openousd_snapshot_$(date +'%Y-%m-%d_%H-%M').dump'",
     "cleanDocker": "./db_backup/cleanDocker.sh"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.6"
   }
 }
