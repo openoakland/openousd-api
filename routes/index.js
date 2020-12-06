@@ -189,7 +189,7 @@ router.get('/central-programs', async (req, res, next) => {
     try {
         let programs = await pgPool.query(centralProgramsQuery)
         programs = programs.rows
-        let staffRoles, staffTimeSeries
+        let staffRoles, timeSeriesData
         let rolesGroupedByProgram = {}
         let timeSeriesGroupedByProgram = {}
 
@@ -240,25 +240,22 @@ router.get('/central-programs', async (req, res, next) => {
         }
 
         if(includeTimeSeries) {
-          let staffTimeSeries = await pgPool.query(timeSeriesQuery)
-          staffTimeSeries = staffTimeSeries.rows
+          let timeSeriesData = await pgPool.query(timeSeriesQuery)
+          timeSeriesData = timeSeriesData.rows
 
-          staffTimeSeries.forEach(row => {
+          timeSeriesData.forEach(row => {
             if(!(row.site_code in timeSeriesGroupedByProgram)) {
               timeSeriesGroupedByProgram[row.site_code] = {
-                eoy_total_fte_time_series: [],
-                eoy_total_positions_time_series: []
+                time_series: [],
               }
             }
 
-            timeSeriesGroupedByProgram[row.site_code].eoy_total_positions_time_series.push({
+            timeSeriesGroupedByProgram[row.site_code].time_series.push({
               year: row.year,
-              eoy_total_positions: row.eoy_total_positions
-            })
-
-            timeSeriesGroupedByProgram[row.site_code].eoy_total_fte_time_series.push({
-              year: row.year,
-              eoy_total_fte: row.eoy_total_fte
+              eoy_total_fte: row.eoy_total_fte,
+              eoy_total_positions: row.eoy_total_positions,
+              spending: row.spending,
+              budget: row.budget
             })
 
           })
@@ -274,18 +271,13 @@ router.get('/central-programs', async (req, res, next) => {
               const previousYear = year-1
 
               program.change_from_previous_year.previous_year = previousYear
+              dataForPreviousYear = program.time_series.find(data => data.year === previousYear)
 
-              const lastYearTotalFTE =
-                program.eoy_total_fte_time_series.find(data => data.year === previousYear)
+              for (const [key, value] of Object.entries(dataForPreviousYear)) {
+                if(key === 'year') continue
+                program.change_from_previous_year[key] = Number((program[key] - value).toFixed(2))
+              }
 
-              program.change_from_previous_year.eoy_total_fte =
-                program.eoy_total_fte - lastYearTotalFTE.eoy_total_fte
-
-              const lastYearTotalPositions =
-                program.eoy_total_positions_time_series.find(data => data.year === previousYear)
-
-              program.change_from_previous_year.eoy_total_positions =
-                program.eoy_total_positions - lastYearTotalPositions.eoy_total_positions
             } catch(e) {
               console.log(`Previous year data not available for`, program.name, program.code, "\n", e)
             }
