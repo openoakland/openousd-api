@@ -54,7 +54,7 @@ router.get('/central-programs', async (req, res, next) => {
 
     const includeStaffRoles = true
     const includeStaffBargainingUnits = true
-    const includeStaffTimeSeries = true
+    const includeTimeSeries = true
 
     const centralProgramsQuery = `SELECT p.*,
                   staff.sum_fte as eoy_total_fte, staff.eoy_total_positions,
@@ -150,7 +150,17 @@ router.get('/central-programs', async (req, res, next) => {
                                     GROUP BY st.site_code, bu.abbreviation, bu.description
                                     ORDER BY st.site_code ASC`
 
-    const staffTimeSeriesQuery =   `SELECT st.site_code,
+    const timeSeriesQuery =   `WITH spending as (SELECT e.site_code,
+                                      SUM(e.ytd_actual) as spending,
+                                      SUM(e.budget) as budget,
+                                      e.year
+                                    FROM
+                                      expenditures e
+                                    WHERE e.site_code >=900
+                                    GROUP BY e.site_code, e.year
+                                    ORDER BY site_code ASC),
+
+                                    staffing as (SELECT st.site_code,
                                       SUM(fte) as sum_fte,
                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
                                       m.year
@@ -162,14 +172,26 @@ router.get('/central-programs', async (req, res, next) => {
                                     WHERE m.position_id = st.position_id
                                       AND m.max_assignment = st.assignment_id
                                       AND st.site_code >=900
-                                    GROUP BY st.site_code, m.year`
+                                    GROUP BY st.site_code, m.year)
+
+                                    SELECT
+                                      st.site_code,
+                                      st.year,
+                                      st.eoy_total_positions,
+                                      st.sum_fte as eoy_total_fte,
+                                      sp.spending,
+                                      sp.budget
+                                    FROM staffing st
+                                    JOIN spending sp
+                                      ON st.year = sp.year AND st.site_code = sp.site_code`
+
 
     try {
         let programs = await pgPool.query(centralProgramsQuery)
         programs = programs.rows
         let staffRoles, staffTimeSeries
         let rolesGroupedByProgram = {}
-        let staffTimeSeriesGroupedByProgram = {}
+        let timeSeriesGroupedByProgram = {}
 
         if(includeStaffRoles) {
             let allStaffRoles = await pgPool.query(staffRolesQuery)
@@ -217,34 +239,34 @@ router.get('/central-programs', async (req, res, next) => {
 
         }
 
-        if(includeStaffTimeSeries) {
-          let staffTimeSeries = await pgPool.query(staffTimeSeriesQuery)
+        if(includeTimeSeries) {
+          let staffTimeSeries = await pgPool.query(timeSeriesQuery)
           staffTimeSeries = staffTimeSeries.rows
 
           staffTimeSeries.forEach(row => {
-            if(!(row.site_code in staffTimeSeriesGroupedByProgram)) {
-              staffTimeSeriesGroupedByProgram[row.site_code] = {
+            if(!(row.site_code in timeSeriesGroupedByProgram)) {
+              timeSeriesGroupedByProgram[row.site_code] = {
                 eoy_total_fte_time_series: [],
                 eoy_total_positions_time_series: []
               }
             }
 
-            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_positions_time_series.push({
+            timeSeriesGroupedByProgram[row.site_code].eoy_total_positions_time_series.push({
               year: row.year,
               eoy_total_positions: row.eoy_total_positions
             })
 
-            staffTimeSeriesGroupedByProgram[row.site_code].eoy_total_fte_time_series.push({
+            timeSeriesGroupedByProgram[row.site_code].eoy_total_fte_time_series.push({
               year: row.year,
-              eoy_total_fte: row.sum_fte
+              eoy_total_fte: row.eoy_total_fte
             })
 
           })
         }
 
         programs = programs.map(program => {
-          if(includeStaffTimeSeries && (program.code in staffTimeSeriesGroupedByProgram)) {
-            program = { ...program, ...staffTimeSeriesGroupedByProgram[program.code]}
+          if(includeTimeSeries && (program.code in timeSeriesGroupedByProgram)) {
+            program = { ...program, ...timeSeriesGroupedByProgram[program.code]}
 
             try {
               program.change_from_previous_year = {}
