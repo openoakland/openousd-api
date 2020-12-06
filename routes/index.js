@@ -157,8 +157,7 @@ router.get('/central-programs', async (req, res, next) => {
                                     FROM
                                       expenditures e
                                     WHERE e.site_code >=900
-                                    GROUP BY e.site_code, e.year
-                                    ORDER BY site_code ASC),
+                                    GROUP BY e.site_code, e.year),
 
                                     staffing as (SELECT st.site_code,
                                       SUM(fte) as sum_fte,
@@ -183,7 +182,8 @@ router.get('/central-programs', async (req, res, next) => {
                                       sp.budget
                                     FROM staffing st
                                     JOIN spending sp
-                                      ON st.year = sp.year AND st.site_code = sp.site_code`
+                                      ON st.year = sp.year AND st.site_code = sp.site_code
+                                    ORDER BY st.site_code, st.year ASC`
 
 
     try {
