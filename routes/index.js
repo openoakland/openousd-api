@@ -135,7 +135,7 @@ router.get('/central-programs', async (req, res, next) => {
 
     const staffBargainingUnitsQuery = `SELECT st.site_code,
                                       bu.abbreviation,
-                                      bu.description,
+                                      bu.description as bargaining_unit_name,
                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_bu
                                     FROM
                                       (SELECT position_id, MAX(assignment_id) as max_assignment
