@@ -70,7 +70,7 @@ router.get('/central-programs', async (req, res, next) => {
                       AND e.site_code != 998
                       AND e.year = ${year}
                       GROUP BY e.site_code, s.description, e.year, s.category
-                      HAVING SUM(e.ytd_actual) >= 0) p
+                      HAVING SUM(e.ytd_actual) > 0) p
                     LEFT JOIN (SELECT st.site_code,
                                       SUM(fte) as sum_fte,
                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions
