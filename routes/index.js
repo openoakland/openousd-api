@@ -4,24 +4,20 @@ const Request = require('express').Request
 
 const pg = require('pg')
 
-if (process.env.NODE_ENV !== 'production') {
-  require('dotenv').config({path: ".env.local"});
-}
-
-
-const connectionName =
-  process.env.INSTANCE_CONNECTION_NAME || 'openousd:us-central1:openousd-staging'
+require('dotenv').config({path: ".env.local"})
 const dbUser = process.env.SQL_USER
 const dbPassword = process.env.SQL_PASSWORD
 const dbName = process.env.SQL_NAME
-const dbHost = process.env.SQL_HOST || `/cloudsql/${connectionName}`
+const dbHost = process.env.SQL_HOST
 
 const pgConfig = {
-  max: 1,
+  max: 10,
   user: dbUser,
   password: dbPassword,
   database: dbName,
-  host: dbHost
+  host: dbHost,
+  connectionTimeoutMillis: 4000,
+  port: 5432
 }
 
 // This specifies that numeric types in PostgreSQL
@@ -39,20 +35,28 @@ if (!pgPool) {
         pgPool = new pg.Pool(pgConfig)
 }
 
+pgPool.on('error', (err, client) => console.log(err))
+
+
+
+// Global defaults
+const latestYear = 2019
+
 const router = Router()
 
 router.get('/central-programs', async (req, res, next) => {
 
-    var year = 2018
+    year = latestYear
 
     if("year" in req.query) {
         year = req.query.year
     }
 
-    var includeStaffRoles = true
-    var includeStaffBargainingUnits = true
+    const includeStaffRoles = true
+    const includeStaffBargainingUnits = true
+    const includeTimeSeries = true
 
-    var centralProgramsQuery = `SELECT p.*,
+    const centralProgramsQuery = `SELECT p.*,
                   staff.sum_fte as eoy_total_fte, staff.eoy_total_positions,
                   ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as remaining_budget_percent
                   FROM
@@ -81,7 +85,37 @@ router.get('/central-programs', async (req, res, next) => {
                       GROUP BY st.site_code) staff ON p.code = staff.site_code
                   ORDER BY p.name`
 
-    var staffRolesQuery = `SELECT st.site_code,
+// Query to select multiple years of data
+//                 SELECT p.*,
+//                   staff.sum_fte as eoy_total_fte, staff.eoy_total_positions,
+//                   ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as remaining_budget_percent
+//                   FROM
+//                     (SELECT e.site_code as code, s.description as name, s.category,
+//                       SUM(e.ytd_actual) as spending,
+//                       SUM(e.budget) as budget,
+//                       e.year
+//                       FROM expenditures e
+//                       LEFT JOIN sites s ON e.site_code = s.code
+//                       WHERE e.site_code >= 900
+//                       AND e.site_code != 998
+// --                       AND e.year = 2018
+//                       GROUP BY e.site_code, s.description, e.year, s.category
+//                       HAVING SUM(e.ytd_actual) >= 0) p
+//                     LEFT JOIN (SELECT st.site_code,
+//                                       SUM(fte) as sum_fte,
+//                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
+//                       m.year
+//                       FROM
+//                         (SELECT position_id, MAX(assignment_id) as max_assignment, year
+//                         from staffing
+//                         GROUP BY position_id, year) m,
+//                         staffing st
+//                       WHERE m.position_id = st.position_id
+//                       AND m.max_assignment = st.assignment_id
+//                       GROUP BY st.site_code, m.year) staff ON p.code = staff.site_code and p.year = staff.year
+//                   ORDER BY p.name
+
+    const staffRolesQuery = `SELECT st.site_code,
                                 COALESCE(jc.display,jc.description) as role_description,
                                 CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_role
                             FROM
@@ -99,9 +133,9 @@ router.get('/central-programs', async (req, res, next) => {
                             GROUP BY st.site_code, jc.description, jc.display
                             ORDER BY st.site_code`
 
-    var staffBargainingUnitsQuery = `SELECT st.site_code,
+    const staffBargainingUnitsQuery = `SELECT st.site_code,
                                       bu.abbreviation,
-                                      bu.description,
+                                      bu.description as bargaining_unit_name,
                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions_for_bu
                                     FROM
                                       (SELECT position_id, MAX(assignment_id) as max_assignment
@@ -116,14 +150,51 @@ router.get('/central-programs', async (req, res, next) => {
                                     GROUP BY st.site_code, bu.abbreviation, bu.description
                                     ORDER BY st.site_code ASC`
 
+    const timeSeriesQuery =   `WITH spending as (SELECT e.site_code,
+                                      SUM(e.ytd_actual) as spending,
+                                      SUM(e.budget) as budget,
+                                      e.year
+                                    FROM
+                                      expenditures e
+                                    WHERE e.site_code >=900
+                                    GROUP BY e.site_code, e.year),
+
+                                    staffing as (SELECT st.site_code,
+                                      SUM(fte) as sum_fte,
+                                      CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
+                                      m.year
+                                    FROM
+                                      (SELECT position_id, MAX(assignment_id) as max_assignment, year
+                                      from staffing
+                                      GROUP BY position_id, year) m,
+                                      staffing st
+                                    WHERE m.position_id = st.position_id
+                                      AND m.max_assignment = st.assignment_id
+                                      AND st.site_code >=900
+                                    GROUP BY st.site_code, m.year)
+
+                                    SELECT
+                                      st.site_code,
+                                      st.year,
+                                      st.eoy_total_positions,
+                                      st.sum_fte as eoy_total_fte,
+                                      sp.spending,
+                                      sp.budget
+                                    FROM staffing st
+                                    JOIN spending sp
+                                      ON st.year = sp.year AND st.site_code = sp.site_code
+                                    ORDER BY st.site_code, st.year ASC`
+
+
     try {
-        var programs = await pgPool.query(centralProgramsQuery)
+        let programs = await pgPool.query(centralProgramsQuery)
         programs = programs.rows
-        var staffRoles
-        var rolesGroupedByProgram = {}
+        let staffRoles, timeSeriesData
+        let rolesGroupedByProgram = {}
+        let timeSeriesGroupedByProgram = {}
 
         if(includeStaffRoles) {
-            var allStaffRoles = await pgPool.query(staffRolesQuery)
+            let allStaffRoles = await pgPool.query(staffRolesQuery)
             staffRoles = allStaffRoles.rows
             rolesGroupedByProgram = staffRoles.reduce((r,row) => {
                 var code = row.site_code
@@ -146,7 +217,7 @@ router.get('/central-programs', async (req, res, next) => {
         }
 
         if(includeStaffBargainingUnits) {
-            var allStaffBargainingUnits = await pgPool.query(staffBargainingUnitsQuery)
+            let allStaffBargainingUnits = await pgPool.query(staffBargainingUnitsQuery)
             staffBargainingUnits = allStaffBargainingUnits.rows
             staffBargainingUnitsGroupedByProgram = staffBargainingUnits.reduce((r,row) => {
                 var code = row.site_code
@@ -168,6 +239,52 @@ router.get('/central-programs', async (req, res, next) => {
 
         }
 
+        if(includeTimeSeries) {
+          let timeSeriesData = await pgPool.query(timeSeriesQuery)
+          timeSeriesData = timeSeriesData.rows
+
+          timeSeriesData.forEach(row => {
+            if(!(row.site_code in timeSeriesGroupedByProgram)) {
+              timeSeriesGroupedByProgram[row.site_code] = {
+                time_series: [],
+              }
+            }
+
+            timeSeriesGroupedByProgram[row.site_code].time_series.push({
+              year: row.year,
+              eoy_total_fte: row.eoy_total_fte,
+              eoy_total_positions: row.eoy_total_positions,
+              spending: row.spending,
+              budget: row.budget
+            })
+
+          })
+        }
+
+        programs = programs.map(program => {
+          if(includeTimeSeries && (program.code in timeSeriesGroupedByProgram)) {
+            program = { ...program, ...timeSeriesGroupedByProgram[program.code]}
+
+            try {
+              program.change_from_previous_year = {}
+
+              const previousYear = year-1
+
+              program.change_from_previous_year.previous_year = previousYear
+              dataForPreviousYear = program.time_series.find(data => data.year === previousYear)
+
+              for (const [key, value] of Object.entries(dataForPreviousYear)) {
+                if(key === 'year') continue
+                program.change_from_previous_year[key] = Number((program[key] - value).toFixed(2))
+              }
+
+            } catch(e) {
+              console.log(`Previous year data not available for`, program.name, program.code, "\n", e)
+            }
+
+          }
+          return program
+        })
         res.json(programs)
     } catch(e) {
         console.log(e)
@@ -178,7 +295,7 @@ router.get('/central-programs', async (req, res, next) => {
 
 router.get('/central-programs/resources', async (req, res, next) => {
 
-    var year = 2018
+    year = latestYear
 
     if("year" in req.query) {
         year = req.query.year
@@ -208,9 +325,9 @@ router.get('/central-programs/resources', async (req, res, next) => {
 
 router.get('/central-programs/sankey', async (req, res, next) => {
 
-    var year = 2018
-    var minSpend = 100000
-    var groupBy = null
+    year = latestYear
+    let minSpend = 100000
+    let groupBy = null
 
     if("year" in req.query) {
         year = req.query.year
@@ -331,7 +448,7 @@ router.get('/central-programs/sankey', async (req, res, next) => {
 
 router.get('/sankey', async (req, res, next) => {
 
-    var year = 2018
+    year = latestYear
     var minSpend = 100000
     var groupBy = null
 
