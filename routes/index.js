@@ -596,21 +596,20 @@ router.get('/central-programs/overview', async (req, res, next) => {
         const previousYear = year-1
         let overviewData = await pgPool.query(overviewQuery)
         overviewData = overviewData.rows
-        result.change_from_previous_year = {}
 
         currentYearData = overviewData.find((dataRow) => dataRow.year === year)
         Object.assign(result, currentYearData)
+        result.time_series = overviewData
 
         previousYearData = overviewData.find((dataRow) => dataRow.year === previousYear)
 
         if (previousYearData) {
+          result.change_from_previous_year = {}
           for (const [key, value] of Object.entries(previousYearData)) {
             if(key === 'year') continue
             result.change_from_previous_year[key] = Number((currentYearData[key] - value).toFixed(2))
           }
         }
-
-        result.time_series = overviewData
 
         res.json(result)
     } catch(e) {
