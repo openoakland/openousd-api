@@ -70,7 +70,7 @@ In order for the server to work, you need to have the DB running. DB instruction
 
 Once you have the DB and the node server running, you can run `npm updateData` in the [openousd-site](https://github.com/openoakland/openousd-site) repo. This will call a series of endpoints on the node server and generate a new set of JSON files.
 
-# Data Updates
+# Annual Database Updates
 
 ## Staffing
 
