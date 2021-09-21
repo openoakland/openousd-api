@@ -85,35 +85,6 @@ router.get('/central-programs', async (req, res, next) => {
                       GROUP BY st.site_code) staff ON p.code = staff.site_code
                   ORDER BY p.name`
 
-// Query to select multiple years of data
-//                 SELECT p.*,
-//                   staff.sum_fte as eoy_total_fte, staff.eoy_total_positions,
-//                   ROUND((1-(p.spending/NULLIF(p.budget,0)))*100,1) as remaining_budget_percent
-//                   FROM
-//                     (SELECT e.site_code as code, s.description as name, s.category,
-//                       SUM(e.ytd_actual) as spending,
-//                       SUM(e.budget) as budget,
-//                       e.year
-//                       FROM expenditures e
-//                       LEFT JOIN sites s ON e.site_code = s.code
-//                       WHERE e.site_code >= 900
-//                       AND e.site_code != 998
-// --                       AND e.year = 2018
-//                       GROUP BY e.site_code, s.description, e.year, s.category
-//                       HAVING SUM(e.ytd_actual) >= 0) p
-//                     LEFT JOIN (SELECT st.site_code,
-//                                       SUM(fte) as sum_fte,
-//                                       CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
-//                       m.year
-//                       FROM
-//                         (SELECT position_id, MAX(assignment_id) as max_assignment, year
-//                         from staffing
-//                         GROUP BY position_id, year) m,
-//                         staffing st
-//                       WHERE m.position_id = st.position_id
-//                       AND m.max_assignment = st.assignment_id
-//                       GROUP BY st.site_code, m.year) staff ON p.code = staff.site_code and p.year = staff.year
-//                   ORDER BY p.name
 
     const staffRolesQuery = `SELECT st.site_code,
                                 COALESCE(jc.display,jc.description) as role_description,
@@ -535,6 +506,109 @@ router.get('/sankey', async (req, res, next) => {
         let result = {
           nodes: nodes,
           links: links.rows
+        }
+
+        res.json(result)
+    } catch(e) {
+        console.log(e.stack)
+        throw new Error (e)
+        res.status(500).send(e)
+    }
+
+})
+
+router.get('/central-programs/overview', async (req, res, next) => {
+
+    year = latestYear
+
+    if("year" in req.query) {
+        year = req.query.year
+    }
+
+    var overviewQuery = `WITH spending as (
+                                    SELECT
+                                      SUM(e.ytd_actual) as spending,
+                                      SUM(e.budget) as budget,
+                                      e.year
+                                    FROM
+                                      expenditures e
+                                    WHERE e.site_code >=900
+                                    GROUP BY e.year),
+
+                                  m as (SELECT position_id, MAX(assignment_id) as max_assignment, year
+                                    from staffing
+                                    GROUP BY position_id, year),
+
+
+                                  staff as (SELECT SUM(st.fte) as sum_fte,
+                                    CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
+                                    m.year
+                                    FROM
+                                       m,
+                                      staffing st
+                                    WHERE m.position_id = st.position_id
+                                      AND m.max_assignment = st.assignment_id
+                                      AND st.site_code >=900
+                                    GROUP BY m.year),
+
+                                  all_ousd_spending as (SELECT
+                                      SUM(e.ytd_actual) as spending,
+                                      SUM(e.budget) as budget,
+                                        e.year
+                                    FROM
+                                      expenditures e
+                                    GROUP BY e.year),
+
+                                  all_ousd_staffing as (SELECT SUM(st.fte) as sum_fte,
+                                    CAST(COUNT(DISTINCT(m.position_id)) AS INT) as eoy_total_positions,
+                                    m.year
+                                    FROM
+                                       m,
+                                      staffing st
+                                    WHERE m.position_id = st."position_id"
+                                      AND m.max_assignment = st.assignment_id
+                                      AND st.site_code >=900
+                                    GROUP BY m.year)
+
+                                  SELECT
+                                    st.year,
+                                    st.eoy_total_positions,
+                                    st.sum_fte as eoy_total_fte,
+                                    sp.spending,
+                                    sp.budget,
+                                    aos.spending as all_ousd_spending,
+                                    aos.budget as all_ousd_budget,
+                                    aost.sum_fte as all_ousd_eoy_total_fte,
+                                    aost.eoy_total_positions as all_ousd_eoy_total_positions
+                                  FROM staff st
+                                  JOIN spending sp
+                                    ON st.year = sp.year
+                                  JOIN all_ousd_spending aos
+                                    ON aos.year = st.year
+                                  JOIN all_ousd_staffing aost
+                                    ON aost.year = st.year
+                                  ORDER BY st.year ASC`
+
+
+    try {
+
+        let result = {}
+        const previousYear = year-1
+        let overviewData = await pgPool.query(overviewQuery)
+        overviewData = overviewData.rows
+
+        currentYearData = overviewData.find((dataRow) => dataRow.year === year)
+        Object.assign(result, currentYearData)
+        result.time_series = overviewData
+
+        previousYearData = overviewData.find((dataRow) => dataRow.year === previousYear)
+
+        if (previousYearData) {
+          result.change_from_previous_year = {}
+          for (const [key, value] of Object.entries(previousYearData)) {
+            if(key === 'year') continue
+            result.change_from_previous_year[key] = Number((currentYearData[key] - value).toFixed(2))
+          }
         }
 
         res.json(result)
