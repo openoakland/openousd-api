@@ -1,6 +1,10 @@
 {
   "name": "openousd-api",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openoakland/openousd-api"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^8.2.0",
