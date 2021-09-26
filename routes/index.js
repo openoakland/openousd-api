@@ -564,7 +564,6 @@ router.get("/central-programs/overview", async (req, res, next) => {
                                       staffing st
                                     WHERE m.position_id = st."position_id"
                                       AND m.max_assignment = st.assignment_id
-                                      AND st.site_code >=900
                                     GROUP BY m.year)
 
                                   SELECT
