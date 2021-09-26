@@ -63,7 +63,8 @@ router.get("/central-programs", async (req, res, next) => {
                       FROM expenditures e
                       LEFT JOIN sites s ON e.site_code = s.code
                       WHERE e.site_code >= 900
-                      AND e.site_code != 998
+                      AND e.site_code NOT IN (996,998)
+                      -- excluding 'Site Contingency' 'Budget Plug for Interim'
                       AND e.year = ${year}
                       GROUP BY e.site_code, s.description, e.year, s.category
                       HAVING SUM(e.ytd_actual) > 0) p
@@ -232,16 +233,16 @@ router.get("/central-programs", async (req, res, next) => {
     programs = programs.map((program) => {
       if (includeTimeSeries && program.code in timeSeriesGroupedByProgram) {
         program = { ...program, ...timeSeriesGroupedByProgram[program.code] }
+        program.change_from_previous_year = null
 
         try {
-          program.change_from_previous_year = {}
-
           const previousYear = year - 1
-
-          program.change_from_previous_year.previous_year = previousYear
           dataForPreviousYear = program.time_series.find(
             (data) => data.year === previousYear
           )
+
+          if (dataForPreviousYear)
+            program.change_from_previous_year = { previous_year: previousYear }
 
           for (const [key, value] of Object.entries(dataForPreviousYear)) {
             if (key === "year") continue
