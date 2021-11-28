@@ -158,6 +158,7 @@ router.get("/central-programs", async (req, res, next) => {
     let staffRoles, timeSeriesData
     let rolesGroupedByProgram = {}
     let timeSeriesGroupedByProgram = {}
+    let previousYearDataGroupedByProgram = {}
 
     if (includeStaffRoles) {
       let allStaffRoles = await pgPool.query(staffRolesQuery)
@@ -212,43 +213,63 @@ router.get("/central-programs", async (req, res, next) => {
     if (includeTimeSeries) {
       let timeSeriesData = await pgPool.query(timeSeriesQuery)
       timeSeriesData = timeSeriesData.rows
+      const previousYear = year - 1
 
       timeSeriesData.forEach((row) => {
         if (!(row.site_code in timeSeriesGroupedByProgram)) {
           timeSeriesGroupedByProgram[row.site_code] = {
-            time_series: [],
+            time_series: {
+              eoy_total_fte: [],
+              eoy_total_positions: [],
+              spending: [],
+              budget: [],
+            },
           }
         }
+        seriesSiteCode = row.site_code
+        delete row.site_code
 
-        timeSeriesGroupedByProgram[row.site_code].time_series.push({
-          year: row.year,
-          eoy_total_fte: row.eoy_total_fte,
-          eoy_total_positions: row.eoy_total_positions,
-          spending: row.spending,
-          budget: row.budget,
-        })
+        seriesYear = row.year
+        delete row.year
+
+        for (const col in row) {
+          timeSeriesGroupedByProgram[seriesSiteCode].time_series[col].push({
+            year: seriesYear,
+            [col]: row[col],
+          })
+        }
+
+        if (previousYear === seriesYear) {
+          previousYearDataGroupedByProgram[seriesSiteCode] = row
+        }
       })
     }
 
     programs = programs.map((program) => {
       if (includeTimeSeries && program.code in timeSeriesGroupedByProgram) {
-        program = { ...program, ...timeSeriesGroupedByProgram[program.code] }
+        program = {
+          ...program,
+          ...timeSeriesGroupedByProgram[program.code],
+        }
         program.change_from_previous_year = null
 
         try {
           const previousYear = year - 1
-          dataForPreviousYear = program.time_series.find(
-            (data) => data.year === previousYear
-          )
+          // dataForPreviousYear = program.time_series.find(
+          //   (data) => data.year === previousYear
+          // )
 
-          if (dataForPreviousYear)
+          if (program.code in previousYearDataGroupedByProgram) {
             program.change_from_previous_year = { previous_year: previousYear }
 
-          for (const [key, value] of Object.entries(dataForPreviousYear)) {
-            if (key === "year") continue
-            program.change_from_previous_year[key] = Number(
-              (program[key] - value).toFixed(2)
-            )
+            for (const [key, value] of Object.entries(
+              previousYearDataGroupedByProgram[seriesSiteCode]
+            )) {
+              if (key === "year") continue
+              program.change_from_previous_year[key] = Number(
+                (program[key] - value).toFixed(2)
+              )
+            }
           }
         } catch (e) {
           console.log(
