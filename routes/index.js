@@ -299,7 +299,7 @@ router.get("/central-programs/resources", async (req, res, next) => {
 
 router.get("/central-programs/sankey", async (req, res, next) => {
   year = latestYear
-  let minSpend = 100000
+  let minSpend = 0
   let groupBy = null
 
   if ("year" in req.query) {
@@ -314,30 +314,74 @@ router.get("/central-programs/sankey", async (req, res, next) => {
     groupBy = req.query.groupBy
   }
 
-  var nodesQuery = `SELECT r.category as id, 'resource' as type, e.site_code, SUM(ytd_actual) as total
+  const objectCategoryCaseStatement = `
+                      CASE
+                        WHEN O.CODE BETWEEN 1000 AND 1999 THEN 'Certificated Salaries'
+                        WHEN O.CODE BETWEEN 2000 AND 2999 THEN 'Classified Salaries'
+                        WHEN O.CODE BETWEEN 3000 AND 3999 THEN 'Employee Benefits'
+                        WHEN O.CODE BETWEEN 4000 AND 4999 THEN 'Books and Supplies'
+                        WHEN O.CODE BETWEEN 5000 AND 5999 THEN 'Consultants and Services'
+                        -- WHEN o.code BETWEEN 5700 AND 5799 THEN 'Services to Support Other Programs' -- Not reached for now
+                        WHEN O.CODE BETWEEN 6000 AND 6999 THEN 'Capital Expenses'
+                        WHEN O.CODE BETWEEN 6000 AND 6999 THEN 'Capital Expenses'
+                        WHEN O.CODE BETWEEN 7100 AND 7199 THEN 'Tuition'
+                        WHEN O.CODE BETWEEN 7200 AND 7299 THEN 'Interagency Transfers Out'
+                        WHEN O.CODE BETWEEN 7300 AND 7399 THEN 'Transfers of Indirect Costs'
+                        WHEN O.CODE BETWEEN 7430 AND 7439 THEN 'Debt Repayment'
+                        WHEN O.CODE BETWEEN 7600 AND 7699 THEN 'Other Financing'
+                        WHEN O.CODE BETWEEN 7600 AND 7629 THEN 'Interfund Transfers Out'
+                        WHEN O.CODE BETWEEN 8010 AND 8099 THEN 'LCFF Sources'
+                        -- WHEN o.code BETWEEN 8010 AND 8019 THEN 'Principal Apportionment'
+                        -- WHEN o.code BETWEEN 8020 AND 8039 THEN 'Tax Relief Subventions'
+                        -- WHEN o.code BETWEEN 8040 AND 8079 THEN 'County and District Taxes'
+                        -- WHEN o.code BETWEEN 8080 AND 8089 THEN 'Miscellaneous Funds'
+                        -- WHEN o.code BETWEEN 8090 AND 8099 THEN 'LCFF Transfers'
+                        WHEN O.CODE BETWEEN 8100 AND 8299 THEN 'Federal Revenue'
+                        WHEN O.CODE BETWEEN 8300 AND 8599 THEN 'Other State Revenue'
+                        WHEN O.CODE BETWEEN 8571 AND 8579 THEN 'Tax Relief Subventions'
+                        WHEN O.CODE BETWEEN 8600 AND 8799 THEN 'Other Local Revenue'
+                        WHEN O.CODE BETWEEN 8610 AND 8629 THEN 'County and District Taxes'
+                        WHEN O.CODE BETWEEN 8631 AND 8639 THEN 'Sales'
+                        WHEN O.CODE BETWEEN 8670 AND 8689 THEN 'Fees and Contracts'
+                        WHEN O.CODE BETWEEN 8690 AND 8719 THEN 'Other Local Revenue'
+                        WHEN O.CODE BETWEEN 8780 AND 8799 THEN 'Interagency Transfers In'
+                        WHEN O.CODE BETWEEN 8900 AND 8999 THEN 'Other Financing Sources'
+                        WHEN O.CODE BETWEEN 8910 AND 8929 THEN 'Interfund Transfers In'
+                        WHEN O.CODE BETWEEN 8980 AND 8999 THEN 'Contributions'
+                        ELSE O.SHORT
+                      END`
+
+  var nodesQuery = `SELECT r.category as id, 'resource' as type, e.site_code, SUM(ytd_actual) as total, string_agg(DISTINCT r.description, ', ') as subnodes
                       FROM expenditures e
                       LEFT JOIN resources r on r.code = e.resource_code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
                       AND e.site_code != 998
                       GROUP BY r.category, e.site_code
-                      HAVING SUM(e.ytd_actual) >= ${minSpend}
+                      HAVING SUM(e.ytd_actual) > ${minSpend}
 
-                      UNION ALL
+                    UNION ALL
 
-                      SELECT o.short as id, 'object' as type, e.site_code, SUM(ytd_actual) as total
-                      FROM expenditures e
-                      LEFT JOIN objects o ON o.code = e.object_code
-                      WHERE e.year = ${year}
-                      AND e.site_code >= 900
-                      AND e.site_code != 998
-                      GROUP BY o.short, e.site_code
-                      HAVING SUM(e.ytd_actual) >= ${minSpend}`
+                    SELECT
+                      ${objectCategoryCaseStatement} id,
+                      'object_category' AS TYPE,
+                      E.SITE_CODE,
+                      SUM(E.YTD_ACTUAL) AS TOTAL,
+                      STRING_AGG(DISTINCT O.SHORT,', ') AS SUBNODES
+                    FROM EXPENDITURES E
+                    LEFT JOIN OBJECTS O ON O.CODE = E.OBJECT_CODE
+                    WHERE E.YEAR = ${year}
+                      AND E.SITE_CODE >= 900
+                      AND E.SITE_CODE != 998
+                    GROUP BY E.SITE_CODE,
+                      ${objectCategoryCaseStatement}
+                    HAVING SUM(E.YTD_ACTUAL) > ${minSpend}
+                    ORDER BY SITE_CODE, total ASC`
 
-  var resourceCol = "category"
+  let resourceCol = "category"
   if (groupBy === "restricted") resourceCol = "type"
 
-  var linksQuery = `SELECT SUM(e.ytd_actual) as value, o.short as target, r.${resourceCol} as source, e.site_code
+  let linksQuery = `SELECT SUM(e.ytd_actual) as value, ${objectCategoryCaseStatement} as target, r.${resourceCol} as source, e.site_code
                       FROM expenditures e
                       LEFT JOIN sites s ON e.site_code = s.code
                       LEFT JOIN resources r ON e.resource_code = r.code
@@ -345,23 +389,23 @@ router.get("/central-programs/sankey", async (req, res, next) => {
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
                       AND e.site_code != 998
-                      GROUP BY o.short, r.${resourceCol}, e.site_code
-                      HAVING SUM(e.ytd_actual) >= ${minSpend}
-                      ORDER by e.site_code`
+                      GROUP BY o.short, r.${resourceCol}, e.site_code, ${objectCategoryCaseStatement}
+                      HAVING SUM(e.ytd_actual) > ${minSpend}`
 
-  var linksResourceTypeQuery = `UNION ALL
+  const linksResourceTypeQuery = `UNION ALL
 
-                      SELECT SUM(e.ytd_actual) as value, r.type as target, r.category as source
+                      SELECT SUM(e.ytd_actual) as value, r.type as target, r.category as source, e.site_code
                       FROM expenditures e
                       LEFT JOIN sites s ON e.site_code = s.code
                       LEFT JOIN resources r ON e.resource_code = r.code
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
                       AND e.site_code != 998
-                      GROUP BY r.category, r.type
-                      HAVING SUM(e.ytd_actual) >= ${minSpend}`
+                      GROUP BY r.category, r.type, e.site_code
+                      HAVING SUM(e.ytd_actual) > ${minSpend}`
 
-  if (groupBy === "restricted") linksQuery = linksQuery + linksResourceTypeQuery
+  if (groupBy === "restricted")
+    linksQuery = linksQuery + " " + linksResourceTypeQuery
 
   const resourceTypeNodes = [
     {
@@ -413,7 +457,6 @@ router.get("/central-programs/sankey", async (req, res, next) => {
     res.json(Object.values(centralProgramsSankey))
   } catch (e) {
     console.log(e.stack)
-    throw new Error(e)
     res.status(500).send(e)
   }
 })
@@ -481,7 +524,8 @@ router.get("/sankey", async (req, res, next) => {
                       GROUP BY r.category, r.type
                       HAVING SUM(e.ytd_actual) >= ${minSpend}`
 
-  if (groupBy === "restricted") linksQuery = linksQuery + linksResourceTypeQuery
+  if (groupBy === "restricted")
+    linksQuery = linksQuery + " " + linksResourceTypeQuery
 
   const resourceTypeNodes = [
     {
