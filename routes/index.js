@@ -389,7 +389,7 @@ router.get("/central-programs/sankey", async (req, res, next) => {
                       WHERE e.year = ${year}
                       AND e.site_code >= 900
                       AND e.site_code != 998
-                      GROUP BY o.short, r.${resourceCol}, e.site_code, ${objectCategoryCaseStatement}
+                      GROUP BY r.${resourceCol}, e.site_code, ${objectCategoryCaseStatement}
                       HAVING SUM(e.ytd_actual) > ${minSpend}`
 
   const linksResourceTypeQuery = `UNION ALL
