@@ -319,7 +319,7 @@ router.get("/central-programs/sankey", async (req, res, next) => {
                         WHEN O.CODE BETWEEN 1000 AND 1999 THEN 'Certificated Salaries'
                         WHEN O.CODE BETWEEN 2000 AND 2999 THEN 'Classified Salaries'
                         WHEN O.CODE BETWEEN 3000 AND 3999 THEN 'Employee Benefits'
-                        WHEN O.CODE BETWEEN 4000 AND 4999 THEN 'Books and Supplies'
+                        WHEN O.CODE BETWEEN 4000 AND 4999 THEN 'Supplies'
                         WHEN O.CODE BETWEEN 5000 AND 5999 THEN 'Consultants and Services'
                         -- WHEN o.code BETWEEN 5700 AND 5799 THEN 'Services to Support Other Programs' -- Not reached for now
                         WHEN O.CODE BETWEEN 6000 AND 6999 THEN 'Capital Expenses'
@@ -407,29 +407,34 @@ router.get("/central-programs/sankey", async (req, res, next) => {
   if (groupBy === "restricted")
     linksQuery = linksQuery + " " + linksResourceTypeQuery
 
-  const resourceTypeNodes = [
-    {
-      id: "Restricted",
-      type: "resource_type",
-      subnodes: "",
-    },
-    {
-      id: "Unrestricted",
-      type: "resource_type",
-      subnodes: "",
-    },
-  ]
-
   try {
     var nodes = await pgPool.query(nodesQuery)
     var links = await pgPool.query(linksQuery)
 
     nodes = nodes.rows
     links = links.rows
-    if (groupBy === "restricted") nodes = nodes.concat(resourceTypeNodes)
+
+    const getBlankProgramSankeyData = (code) => {
+      let blankData = { site_code: code, nodes: [], links: [] }
+      if (groupBy === "restricted")
+        blankData.nodes.push(
+          {
+            id: "Restricted",
+            type: "resource_type",
+            subnodes: "",
+          },
+          {
+            id: "Unrestricted",
+            type: "resource_type",
+            subnodes: "",
+          }
+        )
+
+      return blankData
+    }
 
     let centralProgramsSankey = nodes.reduce((r, row) => {
-      var code = row.site_code
+      const code = row.site_code
       delete row.site_code
 
       if (!row.id) {
@@ -437,13 +442,13 @@ router.get("/central-programs/sankey", async (req, res, next) => {
       }
       delete row.short
 
-      r[code] = r[code] || { site_code: code, nodes: [], links: [] }
+      r[code] = r[code] || getBlankProgramSankeyData(code)
       r[code].nodes.push(row)
       return r
     }, Object.create(null))
 
     links.forEach((row) => {
-      var code = row.site_code
+      const code = row.site_code
       delete row.site_code
 
       if (!row.target) {
