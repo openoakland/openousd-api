@@ -667,22 +667,22 @@ router.get("/central-programs/overview", async (req, res, next) => {
   }
 })
 
-router.get("/covid/overview", async (req, res, next) => {
+router.get("/covid/sites", async (req, res, next) => {
   year = latestYear
 
   if ("year" in req.query) {
     year = req.query.year
   }
 
-  var covidSitesQuery = `SELECT e.site_code       as code,
+  const covidSitesQuery = `SELECT e.site_code       as code,
                                s.description     as name,
-                               SUM(e.ytd_actual) as covid_spending,
-                               e.year
+                               SUM(e.ytd_actual) as covid_spending
+                               -- e.year
                         FROM expenditures e
                                  LEFT JOIN sites s ON e.site_code = s.code
-                        WHERE e.site_code NOT IN (996, 998)
+                        WHERE e.site_code NOT IN (996, 998) AND e.site_code >= 900
                           -- excluding 'Site Contingency' 'Budget Plug for Interim'
-                          AND e.year = 2020
+                          AND e.year = ${year}
                           AND e.resource_code IN (
                                                   3210, -- Elementary and Secondary School Emergency Relief Fund
                                                   3212, -- Elementary and Secondary School Emergency Relief Fund II (ESSER II)
@@ -700,13 +700,50 @@ router.get("/covid/overview", async (req, res, next) => {
                         ORDER BY covid_spending DESC`
 
   try {
-    let result = {}
-    let covidSitesData = await pgPool.query(covidSitesQuery)
-    covidSitesData = covidSitesData.rows
+    let covidSitesData = (await pgPool.query(covidSitesQuery)).rows
 
-    result.sites = covidSitesData
+    res.json(covidSitesData)
+  } catch (e) {
+    console.log(e.stack)
+    throw new Error(e)
+    res.status(500).send(e)
+  }
+})
 
-    res.json(result)
+router.get("/covid/objects", async (req, res, next) => {
+  year = latestYear
+
+  if ("year" in req.query) {
+    year = req.query.year
+  }
+
+  const covidObjectsQuery = `SELECT e.object_code       as code,
+                               COALESCE(o.description,o.short)     as object,
+                               SUM(e.ytd_actual) as spending
+                                FROM expenditures e
+                                         LEFT JOIN objects o ON e.object_code = o.code
+                                WHERE
+                                  e.year = ${year}
+                                  AND e.resource_code IN (
+                                                          3210, -- Elementary and Secondary School Emergency Relief Fund
+                                                          3212, -- Elementary and Secondary School Emergency Relief Fund II (ESSER II)
+                                                          3215, -- Learning Loss Mitigation Governor's Emergency Education Relief (GEER)
+                                                          3220, -- Learning Loss Mitigation Covid
+                                                          5058, -- Child Development Coronavirus Response and Relief Supplemental Appropriations Act (CRRSA) One-Time AB82
+                                                          5316, -- "Child Nutrition Covid Coronavirus Aid Relief and Economic Security (CARES)"
+                                                          7027, -- Child Nutrition State Covid
+                                                          7420, -- Learning Loss Mitigation - General Fund
+                                                          7422, -- In-Person Instruction (IPI)
+                                                          9024 -- Oakland Public Education Fund - OaklandUndivided
+                                    )
+                                GROUP BY e.object_code, o.short, o.description, e.year
+                                HAVING SUM(ytd_actual) >= 1000
+
+                                ORDER BY spending DESC`
+
+  try {
+    let covidObjectsData = (await pgPool.query(covidObjectsQuery)).rows
+    res.json(covidObjectsData)
   } catch (e) {
     console.log(e.stack)
     throw new Error(e)
