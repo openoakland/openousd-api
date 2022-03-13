@@ -39,6 +39,43 @@ pgPool.on("error", (err, client) => console.log(err))
 // Global defaults
 const latestYear = 2020
 
+const objectCategoryCaseStatement = `
+                      CASE
+                        WHEN O.CODE BETWEEN 1000 AND 1999 THEN 'Certificated Salaries'
+                        WHEN O.CODE BETWEEN 2000 AND 2999 THEN 'Classified Salaries'
+                        WHEN O.CODE BETWEEN 3000 AND 3999 THEN 'Employee Benefits'
+                        WHEN O.CODE BETWEEN 4000 AND 4999 THEN 'Supplies'
+                        WHEN O.CODE BETWEEN 5000 AND 5999 THEN 'Consultants and Services'
+                        -- WHEN o.code BETWEEN 5700 AND 5799 THEN 'Services to Support Other Programs' -- Not reached for now
+                        WHEN O.CODE BETWEEN 6000 AND 6999 THEN 'Capital Expenses'
+                        WHEN O.CODE BETWEEN 6000 AND 6999 THEN 'Capital Expenses'
+                        WHEN O.CODE BETWEEN 7100 AND 7199 THEN 'Tuition'
+                        WHEN O.CODE BETWEEN 7200 AND 7299 THEN 'Interagency Transfers Out'
+                        WHEN O.CODE BETWEEN 7300 AND 7399 THEN 'Transfers of Indirect Costs'
+                        WHEN O.CODE BETWEEN 7430 AND 7439 THEN 'Debt Repayment'
+                        WHEN O.CODE BETWEEN 7600 AND 7699 THEN 'Other Financing'
+                        WHEN O.CODE BETWEEN 7600 AND 7629 THEN 'Interfund Transfers Out'
+                        WHEN O.CODE BETWEEN 8010 AND 8099 THEN 'LCFF Sources'
+                        -- WHEN o.code BETWEEN 8010 AND 8019 THEN 'Principal Apportionment'
+                        -- WHEN o.code BETWEEN 8020 AND 8039 THEN 'Tax Relief Subventions'
+                        -- WHEN o.code BETWEEN 8040 AND 8079 THEN 'County and District Taxes'
+                        -- WHEN o.code BETWEEN 8080 AND 8089 THEN 'Miscellaneous Funds'
+                        -- WHEN o.code BETWEEN 8090 AND 8099 THEN 'LCFF Transfers'
+                        WHEN O.CODE BETWEEN 8100 AND 8299 THEN 'Federal Revenue'
+                        WHEN O.CODE BETWEEN 8300 AND 8599 THEN 'Other State Revenue'
+                        WHEN O.CODE BETWEEN 8571 AND 8579 THEN 'Tax Relief Subventions'
+                        WHEN O.CODE BETWEEN 8600 AND 8799 THEN 'Other Local Revenue'
+                        WHEN O.CODE BETWEEN 8610 AND 8629 THEN 'County and District Taxes'
+                        WHEN O.CODE BETWEEN 8631 AND 8639 THEN 'Sales'
+                        WHEN O.CODE BETWEEN 8670 AND 8689 THEN 'Fees and Contracts'
+                        WHEN O.CODE BETWEEN 8690 AND 8719 THEN 'Other Local Revenue'
+                        WHEN O.CODE BETWEEN 8780 AND 8799 THEN 'Interagency Transfers In'
+                        WHEN O.CODE BETWEEN 8900 AND 8999 THEN 'Other Financing Sources'
+                        WHEN O.CODE BETWEEN 8910 AND 8929 THEN 'Interfund Transfers In'
+                        WHEN O.CODE BETWEEN 8980 AND 8999 THEN 'Contributions'
+                        ELSE O.SHORT
+                      END`
+
 const router = Router()
 
 router.get("/central-programs", async (req, res, next) => {
@@ -313,43 +350,6 @@ router.get("/central-programs/sankey", async (req, res, next) => {
   if ("groupBy" in req.query) {
     groupBy = req.query.groupBy
   }
-
-  const objectCategoryCaseStatement = `
-                      CASE
-                        WHEN O.CODE BETWEEN 1000 AND 1999 THEN 'Certificated Salaries'
-                        WHEN O.CODE BETWEEN 2000 AND 2999 THEN 'Classified Salaries'
-                        WHEN O.CODE BETWEEN 3000 AND 3999 THEN 'Employee Benefits'
-                        WHEN O.CODE BETWEEN 4000 AND 4999 THEN 'Supplies'
-                        WHEN O.CODE BETWEEN 5000 AND 5999 THEN 'Consultants and Services'
-                        -- WHEN o.code BETWEEN 5700 AND 5799 THEN 'Services to Support Other Programs' -- Not reached for now
-                        WHEN O.CODE BETWEEN 6000 AND 6999 THEN 'Capital Expenses'
-                        WHEN O.CODE BETWEEN 6000 AND 6999 THEN 'Capital Expenses'
-                        WHEN O.CODE BETWEEN 7100 AND 7199 THEN 'Tuition'
-                        WHEN O.CODE BETWEEN 7200 AND 7299 THEN 'Interagency Transfers Out'
-                        WHEN O.CODE BETWEEN 7300 AND 7399 THEN 'Transfers of Indirect Costs'
-                        WHEN O.CODE BETWEEN 7430 AND 7439 THEN 'Debt Repayment'
-                        WHEN O.CODE BETWEEN 7600 AND 7699 THEN 'Other Financing'
-                        WHEN O.CODE BETWEEN 7600 AND 7629 THEN 'Interfund Transfers Out'
-                        WHEN O.CODE BETWEEN 8010 AND 8099 THEN 'LCFF Sources'
-                        -- WHEN o.code BETWEEN 8010 AND 8019 THEN 'Principal Apportionment'
-                        -- WHEN o.code BETWEEN 8020 AND 8039 THEN 'Tax Relief Subventions'
-                        -- WHEN o.code BETWEEN 8040 AND 8079 THEN 'County and District Taxes'
-                        -- WHEN o.code BETWEEN 8080 AND 8089 THEN 'Miscellaneous Funds'
-                        -- WHEN o.code BETWEEN 8090 AND 8099 THEN 'LCFF Transfers'
-                        WHEN O.CODE BETWEEN 8100 AND 8299 THEN 'Federal Revenue'
-                        WHEN O.CODE BETWEEN 8300 AND 8599 THEN 'Other State Revenue'
-                        WHEN O.CODE BETWEEN 8571 AND 8579 THEN 'Tax Relief Subventions'
-                        WHEN O.CODE BETWEEN 8600 AND 8799 THEN 'Other Local Revenue'
-                        WHEN O.CODE BETWEEN 8610 AND 8629 THEN 'County and District Taxes'
-                        WHEN O.CODE BETWEEN 8631 AND 8639 THEN 'Sales'
-                        WHEN O.CODE BETWEEN 8670 AND 8689 THEN 'Fees and Contracts'
-                        WHEN O.CODE BETWEEN 8690 AND 8719 THEN 'Other Local Revenue'
-                        WHEN O.CODE BETWEEN 8780 AND 8799 THEN 'Interagency Transfers In'
-                        WHEN O.CODE BETWEEN 8900 AND 8999 THEN 'Other Financing Sources'
-                        WHEN O.CODE BETWEEN 8910 AND 8929 THEN 'Interfund Transfers In'
-                        WHEN O.CODE BETWEEN 8980 AND 8999 THEN 'Contributions'
-                        ELSE O.SHORT
-                      END`
 
   var nodesQuery = `SELECT r.category as id, 'resource' as type, e.site_code, SUM(ytd_actual) as total, string_agg(DISTINCT r.description, ', ') as subnodes
                       FROM expenditures e
@@ -667,6 +667,19 @@ router.get("/central-programs/overview", async (req, res, next) => {
   }
 })
 
+const covidResourceList = `
+      3210,-- Elementary and Secondary School Emergency Relief Fund
+      3212,-- Elementary and Secondary School Emergency Relief Fund II (ESSER II)
+      3215,-- Learning Loss Mitigation Governor's Emergency Education Relief (GEER)
+      3220,-- Learning Loss Mitigation Covid
+      5058,-- Child Development Coronavirus Response and Relief Supplemental Appropriations Act (CRRSA) One-Time AB82
+      5316,-- "Child Nutrition Covid Coronavirus Aid Relief and Economic Security (CARES)"
+      7027,-- Child Nutrition State Covid
+      7420,-- Learning Loss Mitigation - General Fund
+      7422,-- In-Person Instruction (IPI)
+      9024 -- Oakland Public Education Fund - OaklandUndivided
+      `
+
 router.get("/covid/sites", async (req, res, next) => {
   year = latestYear
 
@@ -683,18 +696,7 @@ router.get("/covid/sites", async (req, res, next) => {
                         WHERE e.site_code NOT IN (996, 998) AND e.site_code >= 900
                           -- excluding 'Site Contingency' 'Budget Plug for Interim'
                           AND e.year = ${year}
-                          AND e.resource_code IN (
-                                                  3210, -- Elementary and Secondary School Emergency Relief Fund
-                                                  3212, -- Elementary and Secondary School Emergency Relief Fund II (ESSER II)
-                                                  3215, -- Learning Loss Mitigation Governor's Emergency Education Relief (GEER)
-                                                  3220, -- Learning Loss Mitigation Covid
-                                                  5058, -- Child Development Coronavirus Response and Relief Supplemental Appropriations Act (CRRSA) One-Time AB82
-                                                  5316, -- "Child Nutrition Covid Coronavirus Aid Relief and Economic Security (CARES)"
-                                                  7027, -- Child Nutrition State Covid
-                                                  7420, -- Learning Loss Mitigation - General Fund
-                                                  7422, -- In-Person Instruction (IPI)
-                                                  9024 -- Oakland Public Education Fund - OaklandUndivided
-                            )
+                          AND e.resource_code IN (${covidResourceList})
                         GROUP BY e.site_code, s.description, e.year, s.category
                         HAVING SUM(ytd_actual) > 0
                         ORDER BY covid_spending DESC`
@@ -724,25 +726,48 @@ router.get("/covid/objects", async (req, res, next) => {
                                          LEFT JOIN objects o ON e.object_code = o.code
                                 WHERE
                                   e.year = ${year}
-                                  AND e.resource_code IN (
-                                                          3210, -- Elementary and Secondary School Emergency Relief Fund
-                                                          3212, -- Elementary and Secondary School Emergency Relief Fund II (ESSER II)
-                                                          3215, -- Learning Loss Mitigation Governor's Emergency Education Relief (GEER)
-                                                          3220, -- Learning Loss Mitigation Covid
-                                                          5058, -- Child Development Coronavirus Response and Relief Supplemental Appropriations Act (CRRSA) One-Time AB82
-                                                          5316, -- "Child Nutrition Covid Coronavirus Aid Relief and Economic Security (CARES)"
-                                                          7027, -- Child Nutrition State Covid
-                                                          7420, -- Learning Loss Mitigation - General Fund
-                                                          7422, -- In-Person Instruction (IPI)
-                                                          9024 -- Oakland Public Education Fund - OaklandUndivided
-                                    )
+                                  AND e.resource_code IN (${covidResourceList})
                                 GROUP BY e.object_code, o.short, o.description, e.year
-                                HAVING SUM(ytd_actual) >= 1000
+                                HAVING SUM(ytd_actual) >= 100000
 
                                 ORDER BY spending DESC`
 
   try {
     let covidObjectsData = (await pgPool.query(covidObjectsQuery)).rows
+    res.json(covidObjectsData)
+  } catch (e) {
+    console.log(e.stack)
+    throw new Error(e)
+    res.status(500).send(e)
+  }
+})
+
+router.get("/covid/objects/categories", async (req, res, next) => {
+  year = latestYear
+
+  if ("year" in req.query) {
+    year = req.query.year
+  }
+
+  const covidObjectsCategoriesQuery = `SELECT
+          ${objectCategoryCaseStatement} as category,
+          SUM(e.ytd_actual) as spending
+        FROM
+          expenditures e
+          LEFT JOIN objects o ON e.object_code = o.code
+        WHERE
+          e.year = 2020
+          AND e.resource_code IN (${covidResourceList})
+        GROUP BY
+          ${objectCategoryCaseStatement}
+        HAVING
+          SUM(ytd_actual) >= 0
+        ORDER BY
+          spending DESC`
+
+  try {
+    let covidObjectsData = (await pgPool.query(covidObjectsCategoriesQuery))
+      .rows
     res.json(covidObjectsData)
   } catch (e) {
     console.log(e.stack)
