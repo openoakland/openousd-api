@@ -4,7 +4,7 @@ OpenOUSD is a static site which doesn't use an API. The HTML and JS for every pa
 
 # Setup
 
-**Note:** Requires [Docker Desktop](https://www.docker.com/products/docker-desktop) to be installed and running.
+**Note:** Requires [Docker](https://www.docker.com/products/docker-desktop) to be installed and running.
 
 In the top directory, run `docker-compose up`
 
@@ -27,9 +27,9 @@ postgres_1  |
 postgres_1  | WARNING: errors ignored on restore: 27
 ```
 
-# Development - Database
+# Development
 
-## Running the Postgres DB in Docker
+## Running the Postgres DB and Node "API"
 
 After doing the setup above, you can run:
 
@@ -37,34 +37,44 @@ After doing the setup above, you can run:
 docker-compose up
 ```
 
-**Note:** When you run the container in this way, it saves the previous db state and loads that.
+This should start up the postgres db and node server.
+
+**Note:** When you run the container in this way, it saves the previous db state and loads that. Follow instructions below for backing up and clearing the db container.
 
 ## Creating a database snapshot
 
-After modifying the database, you can create a snapshot with:
+If using Docker:
+```
+./db_backup/createSnapshot.sh
+```
+Or without Docker:
 
 ```
 npm run createSnapshot
 ```
 
-Database must be running locally.
+This should be done when you've modified the database locally and want to save the state. A new file is created in `db_backups`. Add and commit the file in git to save it.
+
+To load your snapshot when a new container is started, follow the next set of steps...
 
 ## Clear / restore the DB
 
 Right now, there isn't a script which clears the db and loads a snapshot. To clear and restore a snapshot:
 
 1. Create a snapshot if you ever want to get back to your current state (see above)
-2. To wipe things away, run `npm cleanDocker` to get rid of the existing Docker containers.
+2. To wipe things away, run `npm cleanDocker`  or `./db_backup/cleanDocker.sh` to get rid of the existing Docker containers.
 3. Update `db_backup/backup.sh` with the snapshot you want to restore to
 4. Repeat the setup instructions to load the snapshot
 
 # Development - OpenOUSD "API" (Node)
 
-## Run the server locally
+## Adding / modifying endpoints
 
-To run the server locally with `npm start`. Any changes should redeploy the server.
+All the queries and endpoints are in `routes/index.js`. When you modify and save that file, the node server should restart and you can test out your changes by hitting an endpoint in the browser like:
 
-In order for the server to work, you need to have the DB running. DB instructions above should be completed first.
+```
+http://localhost:8080/api/<your-endpoint>
+```
 
 ## Updating the site data
 

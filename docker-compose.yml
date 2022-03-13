@@ -14,3 +14,12 @@ services:
       dockerfile: ./db_backup/Dockerfile
     volumes:
       - ./db_backup:/db_backup
+  node:
+    ports:
+      - 8080:8080
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    command: "npm start"
+    volumes:
+      - .:/openousd-api
