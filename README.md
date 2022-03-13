@@ -4,7 +4,7 @@ OpenOUSD is a static site which doesn't use an API. The HTML and JS for every pa
 
 # Setup
 
-**Note:** Requires [Docker Desktop](https://www.docker.com/products/docker-desktop) to be installed and running.
+**Note:** Requires [Docker](https://www.docker.com/products/docker-desktop) to be installed and running.
 
 In the top directory, run `docker-compose up`
 
