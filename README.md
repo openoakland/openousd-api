@@ -97,6 +97,46 @@ Once you have the DB and the node server running, you can run `npm updateData` i
 **Modifications before uploading into database**
 
 1. Confirm that the year represents the year that the school year started and adjust if not. 2018-19 school year should be `2018` for example.
-2. Remove trailing whitespace. `job_class_id` and `bargaining_unit_id` columns might have trailing whitespace. The `TRIM` function does this in Excel.
 3. Rename column headers to match the `staffing` table
-4. Import CSV to `staffing` table in Postgres
+4. Import CSV to `staffing` table in Postgres. DBeaver is a free (and somewhat clunky) tool that handles Postgres imports. If you're savvy with Postgres, you can do it from the command line.
+
+Note: `job_class_id` and `bargaining_unit_id` columns might have trailing whitespace. The `TRIM` function removes trailing whitespace in Excel and Postgres. You shouldn't need to trim it because it's trimmed in queries, but you can.
+
+**Checking for missing data in associated tables**
+
+Each year, the district may add new "job classes". These are basically job titles. It's rare, but there could also be new bargaining units. Once you have the staffing data uploaded, you can query to see if there are any new job classes or bargaining units and update the corresponding tables.
+
+If this information isn't available, job roles won't show up on the program details pages. If you don't have a *description* for a job class, you may need to ask an OUSD data contact for another export / Excel file with both a job class and description columns. 
+
+[This gist](https://gist.github.com/jbaldo/7d3f18cf6a888895047641ea3ddd8190) has example queries.
+
+
+## Expenditures
+
+**Modifications before uploading into database**
+
+
+Similar to the modifications needed for staffing.
+
+1. Confirm that the year represents the year that the school year started and adjust if not. 2018-19 school year should be `2018` for example.
+1. Rename column headers to match the `expenditures` table
+1. Import CSV to `expenditures` table in Postgres. DBeaver is a free (and somewhat clunky) tool that handles Postgres imports. If you're savvy with Postgres, you can do it from the command line.
+
+
+**Checking for missing data in associated tables**
+
+There are many more associated join tables with expenditures and more manual steps to update them. The associated objects are:
+* Sites - these are very important because they represent new programs or schools (schools are not currently used on the site, but we maintain the data). They also need a corresponding entry in [Contentful](http://www.contentful.com/)
+* Resources - These need to be categorized for display in the sankey chart
+* Objects 
+* Function - these are not used in the site yet. So a low priority, but there typically are not many new functions.
+
+[This gist](https://gist.github.com/jbaldo/7d3f18cf6a888895047641ea3ddd8190) has example queries and inserts. When there are many new entries, you're better 
+
+## Example PRs
+
+These are examples of PRs for annual site data updates. 
+
+* For the Gatsby front end [`openousd-site`](https://github.com/openoakland/openousd-site/pull/117): There is one config line update to display the latest school year. There some changes in there unrelated to an annual update. There should be no code updates required. All the JSON is generated from the `npm run refreshData` task in the `openousd-site` repo.
+* For the Postgres database / API [`openousd-api`](https://github.com/openoakland/openousd-api/pull/28): Most of the changes are in Postgres database updates, not code changes ([see this gist](https://gist.github.com/jbaldo/7d3f18cf6a888895047641ea3ddd8190)). In code, the latest school year is updated. A database snapshot is taken after all the updates are successful, but you can take intermediate snapshots as well to save progress.
+
