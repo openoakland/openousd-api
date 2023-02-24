@@ -37,7 +37,7 @@ if (!pgPool) {
 pgPool.on("error", (err, client) => console.log(err))
 
 // Global defaults
-const latestYear = 2020
+const latestYear = 2021
 
 const router = Router()
 
@@ -93,7 +93,7 @@ router.get("/central-programs", async (req, res, next) => {
                             job_classes jc,
                             staffing st
                             WHERE m.position_id = st.position_id
-                            AND st.job_class_id = jc.job_class_id
+                            AND TRIM(st.job_class_id) = jc.job_class_id
                             AND m.max_assignment = st.assignment_id
                             AND st.site_code >= 900
                             AND year = ${year}
