@@ -37,7 +37,7 @@ if (!pgPool) {
 pgPool.on("error", (err, client) => console.log(err))
 
 // Global defaults
-const latestYear = 2021
+const latestYear = 2023
 
 const router = Router()
 
